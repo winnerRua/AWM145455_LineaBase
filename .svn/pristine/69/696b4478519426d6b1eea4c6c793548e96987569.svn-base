@@ -1,0 +1,323 @@
+﻿using ProxySGR;
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Xml;
+using System.Xml.Linq;
+
+namespace WSREGAWM.Helpers
+{
+    class AsyncStoreSGR
+    {
+
+        //Parameters
+        string _trama = "";
+        string _xmlRespuesta = "";
+        string _wtipo = "";
+        int _idPaisOrigen;
+        string _logkey = "";
+        string _mensaje = "";
+        string _token = "";
+        //private ControlService.ControlEntities db;
+        string _port = "";
+        string _serviceMode = "";
+        RequestSGR _request;
+
+        public AsyncStoreSGR(string trama, string xmlRespuesta, string wtipo, int idPaisOrigen, string logkey, string token)
+        {
+            try
+            {
+                _trama = trama;
+                _xmlRespuesta = xmlRespuesta;
+                _wtipo = wtipo;
+                _idPaisOrigen = idPaisOrigen;
+                _logkey = logkey;
+                _token = token;
+                //_port = ConfigurationManager.AppSettings["ControlServicePort"];
+                //_serviceMode = ConfigurationManager.AppSettings["ControlServiceMode"];
+            }
+            catch (Exception ex)
+            {
+                //AirpakCommunicationProxy.SaveLog(_logkey, ex.ToString());
+            }
+        }
+
+        private delegate void DelegadoStoreSGR();
+
+        public void StoreSGRAsincrono()
+        {
+            DelegadoStoreSGR delegado = StoreSGR;
+            delegado.BeginInvoke(null, null);
+        }
+
+        private void StoreSGR()
+        {
+            RequestSGR request = new RequestSGR();
+
+            if (_wtipo == "SSM")
+            {
+                request = fillSGRStoreSend(_trama, _xmlRespuesta, _idPaisOrigen, _logkey, ref _mensaje);
+            }
+            if (_wtipo == "SPM")
+            {
+                request = fillSGRStorePay(_trama, _xmlRespuesta, _idPaisOrigen, _logkey, ref _mensaje);
+            }
+            //if (_wtipo == "SQP")
+            //{
+            //    request = fillSGRStoreQuickPay(_trama, _xmlRespuesta, _idPaisOrigen, _logkey, ref _mensaje);
+            //}
+
+            if (!_mensaje.Trim().Equals(""))
+            {
+                //LogWriter.Write(_mensaje, Category.None, Level.Info, request.Transactionid,
+                // request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                //  request.Transactionid);
+            }
+            else
+            {
+                request.Token = _token;
+                ProxySGRt SGR = new ProxySGRt(request);
+                ResponseSGR response = new ResponseSGR();
+                //Log de SGR Request
+                //LogWriter.Write(SGR.RequestXML, Category.None, Level.Info, request.Transactionid,
+                //                request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                //                request.Transactionid);
+
+                if (SGR.StoreTransaccion(ref response))
+                {
+
+                    if (response.token == "ERROR")
+                    {
+                        _mensaje = response.mensaje;
+                    }
+                    //LogWriter.Write(SGR.ResponseXML, Category.None, Level.Info, request.Transactionid,
+                    //request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                    //request.Transactionid);
+                }
+                else
+                {
+                    _mensaje = response.mensaje;
+                    //LogWriter.Write(SGR.ResponseXML, Category.Fault, Level.Error, request.Transactionid,
+                    //      request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                    //      request.Transactionid);
+                }
+            }
+        }
+        private RequestSGR fillSGRStoreSend(string trama, string xmlRespuesta, int IdPaisOrigen, string logkey, ref string mensaje)
+        {
+            RequestSGR request = new RequestSGR();
+            //#region UTF
+            //Utilities mUtileria = new Utilities();
+            //trama = mUtileria.mUTF(trama);
+            //#endregion
+
+            //XmlDocument doc = new XmlDocument();
+            //XDocument xmldoc = XDocument.Parse(trama);
+            //XDocument xmlReply = XDocument.Parse(xmlRespuesta);
+            //#region mapping data
+            //XNamespace wp = "http://www.westernunion.com/schema/xrsi";
+            //var confirm = from info in xmlReply.Descendants(wp + "send-money-store-reply")
+            //              select new
+            //              {
+            //                  mtcn = GetStringElement(info.Element("mtcn"))
+            //              };
+
+            //var header = from info in xmldoc.Descendants("header")
+            //             select new
+            //             {
+            //                 agency_id = GetStringElement(info.Element("agency_id")),
+            //                 originating_country_id = GetStringElement(info.Element("originating_country_id")),
+            //                 operation_product_id = GetStringElement(info.Element("operation_product_id")) == "" ? "wu" : GetStringElement(info.Element("operation_product_id"))
+            //             };
+
+            //var details = from info in xmldoc.Descendants("payment_details")
+            //              select new
+            //              {
+            //                  dc_country_code = GetStringElement(info.Element("destination_country_currency").Element("iso_code").Element("country_code")),
+            //                  dc_currency_code = GetStringElement(info.Element("destination_country_currency").Element("iso_code").Element("currency_code")),
+            //                  oc_country_code = GetStringElement(info.Element("originating_country_currency").Element("iso_code").Element("country_code")),
+            //                  oc_currency_code = GetStringElement(info.Element("originating_country_currency").Element("iso_code").Element("currency_code"))
+            //              };
+
+            //var financials = from info in xmldoc.Descendants("financials")
+            //                 select new
+            //                 {
+            //                     municipal_tax = GetDoubleElement(info.Element("taxes").Element("municipal_tax")),
+            //                     state_tax = GetDoubleElement(info.Element("taxes").Element("state_tax")),
+            //                     county_tax = GetDoubleElement(info.Element("taxes").Element("county_tax")),
+            //                     originators_principal_amount = GetDoubleElement(info.Element("originators_principal_amount")),
+            //                     destination_principal_amount = GetDoubleElement(info.Element("destination_principal_amount")),
+            //                     gross_total_amount = GetDoubleElement(info.Element("gross_total_amount")),
+            //                     plus_charges_amount = GetDoubleElement(info.Element("plus_charges_amount")),
+            //                     charges = GetDoubleElement(info.Element("charges")),
+            //                     message_charge = GetDoubleElement(info.Element("message_charge"))
+            //                 };
+
+            //string ipError = "";
+            //string ipPais = getUrl(IdPaisOrigen, ref ipError);
+
+            //dynamic tracsURL = string.Format("http://{0}:{1}/{2}/", ipPais, _port, _serviceMode);
+            //db = new ControlService.ControlEntities(new Uri(tracsURL));
+
+            //int AgenciaID = int.Parse(header.First().agency_id);
+            //var queryagencia = (from a in db.Agencias.Expand("Grupo")
+            //                    where a.AgenciaID == AgenciaID
+            //                    select a).FirstOrDefault();
+
+            //string moneda = details.First().oc_currency_code;
+            //string tasa = "1";
+            //tasa = GetTasa(trama, "ENVIO", IdPaisOrigen, AgenciaID, header.First().operation_product_id, logkey, ref mensaje).ToString();
+            //#endregion
+
+            //request.Sucursal = header.First().agency_id;
+            //request.Transactionamount = (financials.First().originators_principal_amount / 100).ToString();
+            //request.Transactioncurrency = details.FirstOrDefault().oc_currency_code;
+            //request.Isocountry = details.FirstOrDefault().oc_country_code;
+            //request.Transactiontype = System.Configuration.ConfigurationManager.AppSettings["SGR_NotaDebito"];
+
+            ////Se realiza cambio para que se envie a SGR Simple y Rpaido, y DigitalWU en caso que sean de Sitio Web
+            //switch (header.First().operation_product_id.ToLower())
+            //{
+            //    case "syr":
+            //        request.Description = ConfigurationManager.AppSettings["SGR_SendMoneySYR"];
+            //        break;
+            //    default:
+            //        request.Description = ConfigurationManager.AppSettings["SGR_SendMoney"];
+            //        break;
+            //}
+
+            //request.Subproductcode = System.Configuration.ConfigurationManager.AppSettings["SGR_SendMoney"];
+            //request.Transactioncharges = ((financials.First().charges + financials.First().message_charge) / 100).ToString();
+            //request.Transactiontax = ((financials.First().county_tax + financials.First().municipal_tax + financials.First().state_tax) / 100).ToString();
+            //request.Transactionid = confirm.FirstOrDefault().mtcn;
+            //request.Transactiondate = DateTime.Now.ToString("yyyy-MM-dd");
+            //request.Exchangerateliq = tasa;
+            //request.Plataform = System.Configuration.ConfigurationManager.AppSettings["SGR_Platform"];
+            ////Se aplico el cambio para que los Envios tengan este nuevo tipo de producto WUOB
+
+            ////Se realiza cambio para que se envie a SGR Simple y Rpaido, y DigitalWU en caso que sean de Sitio Web
+            //switch (header.First().operation_product_id.ToLower())
+            //{
+            //    case "dwu":
+            //        request.Productcode = System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCodeDigitalWU"];
+            //        break;
+            //    default:
+            //        request.Productcode = System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCodeSendMoney"];
+            //        break;
+            //}
+
+
+            //request.Adjustment = "0";
+            //request.Subagent = queryagencia.Grupo.CodigoGrupo.ToString();
+            //request.Token = "";
+            //request.expirationdate = "";
+
+            return request;
+        }
+
+        private RequestSGR fillSGRStorePay(string trama, string xmlRespuesta, int IdPaisOrigen, string logkey, ref string mensaje)
+        {
+            RequestSGR request = new RequestSGR();
+        
+            //Utilities mUtileria = new Utilities();
+            //trama = mUtileria.mUTF(trama);
+            //#endregion
+
+            //XmlDocument doc = new XmlDocument();
+            //XDocument xmldoc = XDocument.Parse(trama);
+            //XDocument xmlReply = XDocument.Parse(xmlRespuesta);
+            //#region mapping data
+            //XNamespace wp = "http://www.westernunion.com/schema/xrsi";
+            //var confirm = from info in xmlReply.Descendants(wp + "receive-money-pay-reply")
+            //              select new
+            //              {
+            //                  mtcn = GetStringElement(info.Element("mtcn"))
+            //              };
+
+
+            //var header = from info in xmldoc.Descendants("header")
+            //             select new
+            //             {
+            //                 agency_id = GetStringElement(info.Element("agency_id")),
+            //                 product_id = GetStringElement(info.Element("operation_product_id")) == "" ? "wu" : GetStringElement(info.Element("operation_product_id"))
+            //             };
+
+            //string _product = string.IsNullOrEmpty(header.FirstOrDefault().product_id) ? System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCode"] : header.FirstOrDefault().product_id; ;
+            ////_product = header.FirstOrDefault().product_id.Trim().Equals(ConfigurationManager.AppSettings["KeySYR"].Trim().ToString()) ? ConfigurationManager.AppSettings["SGR_ProductCode"] : header.FirstOrDefault().product_id;
+            ////_product = _product == "" ? System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCode"] : _product;
+
+            ////Se realiza cambio para que se envie a SGR Simple y Rpaido, y DigitalWU en caso que sean de Sitio Web
+            //switch (header.FirstOrDefault().product_id.ToLower())
+            //{
+            //    case "dwu":
+            //        _product = System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCodeDigitalWU"];
+            //        break;
+            //    default:
+            //        _product = header.FirstOrDefault().product_id.Trim().Equals(ConfigurationManager.AppSettings["KeySYR"].Trim().ToString()) ? System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCode"] : header.FirstOrDefault().product_id;
+            //        break;
+            //}
+
+
+            //var details = from info in xmldoc.Descendants("payment_details")
+            //              select new
+            //              {
+            //                  dc_country_code = GetStringElement(info.Element("destination_country_currency").Element("iso_code").Element("country_code")),
+            //                  dc_currency_code = GetStringElement(info.Element("destination_country_currency").Element("iso_code").Element("currency_code")),
+            //              };
+
+            //var financials = from info in xmldoc.Descendants("financials")
+            //                 select new
+            //                 {
+            //                     principal_amount = GetDoubleElement(info.Element("pay_amount"))
+            //                 };
+
+            //string ipError = "";
+            //string ipPais = getUrl(IdPaisOrigen, ref ipError);
+
+            //dynamic tracsURL = string.Format("http://{0}:{1}/{2}/", ipPais, _port, _serviceMode);
+            //db = new ControlService.ControlEntities(new Uri(tracsURL));
+
+            //int AgenciaID = int.Parse(header.First().agency_id);
+            //var queryagencia = (from a in db.Agencias.Expand("Grupo")
+            //                    where a.AgenciaID == AgenciaID
+            //                    select a).FirstOrDefault();
+
+            //string tasa = "1";
+            //tasa = GetTasa(trama, "PAGO", IdPaisOrigen, AgenciaID, header.FirstOrDefault().product_id, logkey, ref mensaje).ToString();
+            //#endregion
+
+            //request.Sucursal = header.First().agency_id;
+            //request.Transactionamount = (financials.First().principal_amount / 100).ToString();
+            //request.Transactioncurrency = details.FirstOrDefault().dc_currency_code;
+            //request.Isocountry = details.FirstOrDefault().dc_country_code;
+            //request.Transactiontype = System.Configuration.ConfigurationManager.AppSettings["SGR_NotaCredito"];
+
+            ////Se realiza cambio para que se envie a SGR diferente descripcion
+            //switch (header.FirstOrDefault().product_id.ToLower())
+            //{
+            //    case "syr":
+            //        request.Description = System.Configuration.ConfigurationManager.AppSettings["SGR_ReceiveMoneySYR"];
+            //        break;
+            //    default:
+            //        request.Description = System.Configuration.ConfigurationManager.AppSettings["SGR_ReceiveMoney"];
+            //        break;
+            //}
+
+            //request.Subproductcode = System.Configuration.ConfigurationManager.AppSettings["SGR_ReceiveMoney"];
+            //request.Transactioncharges = "0";
+            //request.Transactiontax = "0";
+            //request.Transactionid = confirm.FirstOrDefault().mtcn;
+            //request.Transactiondate = DateTime.Now.ToString("yyyy-MM-dd");
+            //request.Exchangerateliq = tasa;
+            //request.Plataform = System.Configuration.ConfigurationManager.AppSettings["SGR_Platform"];
+            ////request.Productcode = System.Configuration.ConfigurationManager.AppSettings["SGR_ProductCode"]; 
+            //request.Productcode = _product.ToUpper();
+            //request.Adjustment = "0";
+            //request.Subagent = queryagencia.Grupo.CodigoGrupo.ToString();
+            //request.Token = "";
+            //request.expirationdate = "";
+
+            return request;
+        }
+    }
+}

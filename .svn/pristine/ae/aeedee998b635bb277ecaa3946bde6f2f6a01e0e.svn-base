@@ -1,0 +1,58 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning"
+    }
+  },
+  "AppSettings": {
+    "dbalias": "H2H_G",
+    "SecretKey": "logsairpakgatewaymultimarcas",
+    "KeyComFX": "DWU,wu,vigo,syr,STPY",
+    "GT": "1",
+    "LogService_DetailsTracs": "true",
+    "ProductsWithTasaWU": "",
+    "keySYR": "syr",
+    "CountrySGR": "2",
+    "SGR_Platform": "TRACS",
+    "SGR_ProductCode": "WU",
+    "SGR_ProductCodeSendMoney": "WUOB",
+    "SGR_ProductCodeSYR": "syr",
+    "SGR_ProductCodeDigitalWU\"": "DWU",
+    "SGR_SendMoney": "ENVIO",
+    "SGR_ReceiveMoney": "PAGO",
+    "SGR_Quickpay\"": "ENVIO",
+    "SGR_NotaCredito": "N/C",
+    "SGR_NotaDebito": "N/D",
+    "SGR_ProcessTransaction": "true",
+    "SGR_DenyTransaction": "false",
+    "SGR_ErrorCode": "AIR099",
+    "ControlServiceMode": "DataService.svc",
+    "ControlServiceport": "4499"
+  },
+  "Servicios": {
+    "servicioLogs": "https://localhost:44389/api/servicioLogs/guardarLog",
+    "servicioConsumeWS": "https://localhost:44374/api/SoapProxy"
+  },
+  "StoredProcedures": {
+    "getpartnerconfig": "remesadores.sp_select_GWMMPartnerConfig",
+    "getPartnerServiceParameter": "remesadores.sp_select_GWMMPartnersRequestFields",
+    "GetPartnerServiceNameSpace": "remesadores.sp_select_GWMMPartner_serv_NameSpace",
+    "GetPartnerParameterNameSpaces": "remesadores.sp_select_GWMMPartnerParamNameSpace",
+    "insertGWMMEvent": "remesadores.sp_insert_GWMMEvent",
+    "GetPartnerUsuario": "remesadores.sp_select_GWMMPartner",
+    "GetRemesadorInfo": "remesadores.sp_select_GWMMRemesador",
+    "GetRemesadorConfig": "remesadores.sp_select_GWMMRemesadorConfig",
+    "getRemesadorParametros": "remesadores.sp_select_GWMMParamRemesador",
+    "getParamNameSpaces": "remesadores.sp_select_GWMMParamNameSpaceRemesador",
+    "getNameSpaces": "remesadores.sp_select_GWMMNameSpaceRemesador",
+    "getHeaderProperties": "remesadores.sp_select_GWMMRemesadorHeaderProperties",
+    "getCertificadoRemesador": "remesadores.sp_select_GWMMRemesadorCertificado",
+    "getRemesadorPartnerFields": "remesadores.sp_select_GWMMGetRemesadorPartnerFields",
+    "getInterfazOperacionRemesador": "remesadores.sp_select_GWMMInterfazOperacionRemesador",
+    "getCredencialesOperador": "remesadores.sp_GWMM_CredencialesOperador",
+    "SimpleAndFastChekPermission": "dbo.sp_SimpleAndFast_CheckPermissionH2H",
+    "getIdPais": "remesadores.sp_getGWMMIdPais"
+
+  },
+  "AllowedHosts": "*"
+}

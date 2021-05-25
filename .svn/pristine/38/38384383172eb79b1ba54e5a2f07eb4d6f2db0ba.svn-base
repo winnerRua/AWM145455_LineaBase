@@ -1,0 +1,1 @@
+﻿<%@ ServiceHost Language="C#" Debug="true" Service="WSREGGWMMSOAP.ServiceResponse" CodeBehind="ServiceResponse.svc.cs" %>

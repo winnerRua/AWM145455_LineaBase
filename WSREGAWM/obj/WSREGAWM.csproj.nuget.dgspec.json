@@ -1,0 +1,162 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGAWM\\WSREGAWM.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGAWM\\WSREGAWM.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGAWM\\WSREGAWM.csproj",
+        "projectName": "WSREGAWM",
+        "projectPath": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGAWM\\WSREGAWM.csproj",
+        "packagesPath": "C:\\Users\\ITProfis.Edwin.Ruano\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGAWM\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\ITProfis.Edwin.Ruano\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.0": {
+            "projectReferences": {
+              "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGPROXY\\WSREGPROXY.csproj": {
+                "projectPath": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGPROXY\\WSREGPROXY.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        }
+      },
+      "frameworks": {
+        "netstandard2.0": {
+          "dependencies": {
+            "Microsoft.Extensions.Configuration.Binder": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            },
+            "NETStandard.Library": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[2.0.3, )",
+              "autoReferenced": true
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[12.0.3, )"
+            },
+            "System.Data.DataSetExtensions": {
+              "target": "Package",
+              "version": "[4.5.0, )"
+            },
+            "System.Data.SqlClient": {
+              "target": "Package",
+              "version": "[4.8.2, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\3.1.403\\RuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGPROXY\\WSREGPROXY.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGPROXY\\WSREGPROXY.csproj",
+        "projectName": "WSREGPROXY",
+        "projectPath": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGPROXY\\WSREGPROXY.csproj",
+        "packagesPath": "C:\\Users\\ITProfis.Edwin.Ruano\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\ITProfis.Edwin.Ruano\\Documents\\Branch Sprint 2\\145455_LineaBase\\WSREGPROXY\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\ITProfis.Edwin.Ruano\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "netstandard2.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "netstandard2.0": {
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        }
+      },
+      "frameworks": {
+        "netstandard2.0": {
+          "dependencies": {
+            "Microsoft.Extensions.Configuration.Abstractions": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Binder": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            },
+            "NETStandard.Library": {
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[2.0.3, )",
+              "autoReferenced": true
+            },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[12.0.3, )"
+            },
+            "System.Data.DataSetExtensions": {
+              "target": "Package",
+              "version": "[4.5.0, )"
+            },
+            "System.Data.SqlClient": {
+              "target": "Package",
+              "version": "[4.8.2, )"
+            },
+            "System.IdentityModel.Tokens.Jwt": {
+              "target": "Package",
+              "version": "[6.8.0, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\3.1.403\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

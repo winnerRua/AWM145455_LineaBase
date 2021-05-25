@@ -1,0 +1,13 @@
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\bin\Debug\netstandard2.0\WSREGPROXY.deps.json
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\bin\Debug\netstandard2.0\WSREGPROXY.dll
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\bin\Debug\netstandard2.0\WSREGPROXY.pdb
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\bin\Debug\netstandard2.0\AH2HAS.dll
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\bin\Debug\netstandard2.0\CriptoEngine.dll
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\bin\Debug\netstandard2.0\GrupoCoen.Corporativo.Libraries.ConexionBD.dll
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.csprojAssemblyReference.cache
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.AssemblyInfoInputs.cache
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.AssemblyInfo.cs
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.csproj.CoreCompileInputs.cache
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.csproj.CopyComplete
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.dll
+C:\Users\ITProfis.Edwin.Ruano\Documents\Branch Sprint 2\145455_LineaBase\WSREGPROXY\obj\Debug\netstandard2.0\WSREGPROXY.pdb

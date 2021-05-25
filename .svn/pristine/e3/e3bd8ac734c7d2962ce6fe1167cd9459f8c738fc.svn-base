@@ -1,0 +1,407 @@
+﻿using GrupoCoen.Corporativo.Libraries.ConexionBD;
+using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+//using WSREGAUTHORIZER;
+using WSREGAWM.Entities;
+using WSREGAWM.Helpers;
+using WSREGAWM.Services;
+using WSREGPROXY.Helpers;
+using WSREGPROXY;
+using System.Data;
+using WSREGPROXY.Entities;
+using WSREGPROXY.Services;
+using WSSoapProxy.Models;
+using System.Xml.Linq;
+using Newtonsoft.Json;
+using System.Net;
+using System.IO;
+
+namespace WSREGAWM
+{
+    public class AWMCore
+    {
+        UtileriasProxy utiProxy = new UtileriasProxy();
+        Transacciones transaccion = new Transacciones();
+
+        dynamic responseRemesador;
+        WorkFlows oWF = new WorkFlows();
+        string agency_code = string.Empty;
+        string sub_agent_user = string.Empty;
+        string oError;
+
+        public dynamic beginWorkflow(string Request, IConfiguration _config, string Key)
+        {
+            try
+            {
+                string tokenSGR = "";
+                string oRespuesta = "";
+                int oSGR = -1;
+                bool country = false;
+                string respuesta = string.Empty, request = string.Empty;
+                UtileriasAWM miUtilerias = new UtileriasAWM();
+                ConexionBDAWM miConexionBD = new ConexionBDAWM();
+                //Authorizer auto = new Authorizer();
+                Proxy prox = new Proxy();
+
+                var mijObject = JObject.Parse(Request);
+                bool va = false;
+
+                //Dictionary<dynamic, dynamic> encuentra = new Dictionary<dynamic, dynamic>();
+                //encuentra.Add("CodigoAgencia", miUtilerias.getPropertyValue("header.agency_code", mijObject));
+                //encuentra.Add("CuentaAgencia", miUtilerias.getPropertyValue("header.agency_account", mijObject));
+                //encuentra.Add("Usuario", miUtilerias.getPropertyValue("header.user", mijObject));
+                //encuentra.Add("Contraseña", miUtilerias.getPropertyValue("header.password", mijObject));
+                //encuentra.Add("TerminalID", miUtilerias.getPropertyValue("header.terminal_id", mijObject));
+
+                var CodigoAgencia = miUtilerias.getPropertyValue("header.agency_code", mijObject);
+                var dat2 = miUtilerias.getPropertyValue("header.agency_account", mijObject);
+                var dat3 = miUtilerias.getPropertyValue("header.user", mijObject);
+                var dat4 = miUtilerias.getPropertyValue("header.password", mijObject);
+                var dat5 = miUtilerias.getPropertyValue("header.terminal_id", mijObject);
+                var Producto = miUtilerias.encontrarValorNodo(mijObject, "operation_product_id");
+
+                if(string.IsNullOrEmpty(CodigoAgencia) || string.IsNullOrEmpty(dat2) || string.IsNullOrEmpty(dat3) || string.IsNullOrEmpty(dat4) || string.IsNullOrEmpty(dat5) || string.IsNullOrEmpty(Producto))
+                {
+                    oWF = miConexionBD.obtenerProductoID(_config, Producto);
+                    var valoresAgencia = miUtilerias.ObtenerValoresAgencia(_config, CodigoAgencia, oWF.ProductoID);
+                }
+                //var valor = miUtilerias.encontrarValorNodo(mijObject, "operation_id");
+                oWF = miConexionBD.obtenerWorkFlow(_config, miUtilerias.encontrarValorNodo(mijObject, "operation_id"), miUtilerias.encontrarValorNodo(mijObject, "operation_product_id"), int.Parse(miUtilerias.encontrarValorNodo(mijObject, "remesador_id")));
+                utiProxy.SaveLog(oWF.NombreWorkFlow, "1", Key, 1, _config);
+
+                switch (oWF.NombreWorkFlow)
+                {
+                    case "SENDMONEY":
+                        var send = ejecutarActividades(oWF.Operaciones, _config, Request, int.Parse(miUtilerias.encontrarValorNodo(mijObject, "remesador_id")), Key);
+
+                        utiProxy.SaveLog(send, "1", Key, 1, _config);
+
+                        if (oWF.ConsumeAutorizador)
+                        {
+                            //Consumir autorizador
+                            //var conAuto = auto.ConsumeAuthorizer(Request, _config, oError);
+                            //utiProxy.SaveLog(conAuto, "1", Key, 1, _config);
+                            //if (!string.IsNullOrEmpty(conAuto))
+                            //{
+                            //    return conAuto;
+                            //}
+                        }
+
+                        if (oWF.ConsumeProxy)
+                        {
+                            //Consumir proxy.
+                            var valProx = prox.ConsumeProxy(Request, Key, _config);
+                            utiProxy.SaveLog(valProx, "1", Key, 1, _config);
+                            var validar = miUtilerias.encontrarValorNodo(valProx, "Fault");
+                            if (!string.IsNullOrEmpty(validar))
+                            {
+                                return valProx;
+                            }
+                        }
+                        if (oWF.GuardaTransaccion)
+                        {
+                            string tipo = "ENVIO";
+                            var ENVIO = miUtilerias.tipoTrans(Request, tipo);
+                            var trans = transaccion.storeSendMoney(1, ENVIO, _config, oWF.GuardaTransaccion, Key);
+                            utiProxy.SaveLog(Convert.ToString(trans), "1", Key, 1, _config);
+                            return trans;
+                        }
+
+                        if (oWF.ValidaSGR)
+                        {
+
+                            string oMensaje = "";
+                            country = mvalidateCountry(Request, "VSM", _config);
+
+                            if (new UtileriasAWM().getAppSettingsKey("SGR_ProcessTransaction", _config) == "true" && country)
+                            {
+                                //ojo: sacar pais ID para mandar al sgr
+
+                                int paisID = new ConexionBD().get_paisID(_config, new UtileriasAWM().getPropertyValue("header.country_code", JObject.Parse(Request)), ref oError);
+                                oSGR = mValidateSGR(_config, Request, paisID, Key, ref oError, ref oMensaje, ref tokenSGR, oRespuesta);
+                                if (oSGR == -1)
+                                {
+                                    if (new UtileriasAWM().getAppSettingsKey("SGR_DenyTransaction", _config) == "true")
+                                    {
+
+                                        oMensaje = new UtileriasAWM().getAppSettingsKey("SGR_ErrorCode", _config) + " " + oMensaje;
+                                        //oRespuesta = GetError(oMensaje, oOwner);
+                                        throw new Exception(oMensaje);
+                                    }
+                                    else
+                                    {
+                                        oError = "";
+                                    }
+                                }
+                            }
+
+                        }
+                        if (oWF.AlmacenaSGR)
+                        {
+                            //-- Validamos el producto SyR
+                            string oProducto = new UtileriasAWM().getPropertyValue("header.operation_product_id", JObject.Parse(Request));
+                            bool valProducto = true;
+                            //oProducto.Equals(new UtileriasAWM().getAppSettingsKey("KeySYR",_config) )? (oSnF.rq_status.Equals("RELEASE") ? true : false) : true;
+
+                            if (new UtileriasAWM().getAppSettingsKey("SGR_ProcessTransaction", _config) == "true" && country && valProducto)
+                            {
+                                //if (token != "ERROR")
+                                //{
+                                string oErrorSGR = "";
+                                string oMensajeSGR = "";
+                                int paisID = new ConexionBD().get_paisID(_config, new UtileriasAWM().getPropertyValue("header.country_code", JObject.Parse(Request)), ref oError);
+                                oSGR = mStoreSGR(_config, Request, oRespuesta, paisID, Key, ref oErrorSGR, ref oMensajeSGR, tokenSGR);
+                                if (oSGR == -1)
+                                {
+                                    //oRespuesta = mError(oMensaje, oOwner);
+                                    //throw new Exception(oMensaje);
+                                }
+                                //}
+                            }
+                        }
+                        break;
+
+                    case "PAYMONEY":
+                        var pay = ejecutarActividades(oWF.Operaciones, _config, Request, int.Parse(miUtilerias.encontrarValorNodo(mijObject, "remesador_id")), Key);
+                        utiProxy.SaveLog(pay, "1", Key, 1, _config);
+                        if (oWF.ConsumeAutorizador)
+                        {
+                            //Consumir autorizador
+                            //var conAuto = auto.ConsumeAuthorizer(Request, _config, oError);
+                            //utiProxy.SaveLog(conAuto, "1", Key, 1, _config);
+                            //if (!string.IsNullOrEmpty(conAuto))
+                            //{
+                            //    return conAuto;
+                            //}
+                        }
+                        if (oWF.ConsumeProxy)
+                        {
+                            //Consumir proxy.
+                            var valProx = prox.ConsumeProxy(Request, Key, _config);
+                            utiProxy.SaveLog(valProx, "1", Key, 1, _config);
+                            var validar = miUtilerias.encontrarValorNodo(valProx, "Fault");
+                            if (!string.IsNullOrEmpty(validar))
+                            {
+                                return valProx;
+                            }
+                        }
+                        if (oWF.GuardaTransaccion)
+                        {
+                            string tipo = "PAGO";
+                            var PAGO = miUtilerias.tipoTrans(Request, tipo);
+                            var guarda = transaccion.storePayMoney(1, PAGO, _config, oWF.GuardaTransaccion, Key);
+                            utiProxy.SaveLog(guarda, "1", Key, 1, _config);
+                            return guarda;
+                        }
+                        break;
+
+                    case "FEEINQUIRY":
+                    case "REMNOVAL":
+                    case "CURRENCYCONVERT":
+                        var currency = ejecutarActividades(oWF.Operaciones, _config, Request, int.Parse(miUtilerias.getPropertyValue("remesador_id", mijObject)), Key);
+                        utiProxy.SaveLog(currency, "1", Key, 1, _config);
+                        if (oWF.ConsumeAutorizador)
+                        {
+                            //Consumir autorizador
+                            //var conAuto = auto.ConsumeAuthorizer(Request, _config, oError);
+                            //utiProxy.SaveLog(conAuto, "1", Key, 1, _config);
+                            //if (!string.IsNullOrEmpty(conAuto))
+                            //{
+                            //    return conAuto;
+                            //}
+                        }
+                        if (oWF.ConsumeProxy)
+                        {
+                            //Consumir proxy.
+                            var valProx = prox.ConsumeProxy(Request, Key, _config);
+                            utiProxy.SaveLog(valProx, "1", Key, 1, _config);
+                            var validar = miUtilerias.encontrarValorNodo(valProx, "Fault");
+                            if (!string.IsNullOrEmpty(validar))
+                            {
+                                return valProx;
+                            }
+                        }
+                        break;
+                    case "RECEIPTPRINT":
+                        var recibo = miConexionBD.imprimirBoleta(_config, miUtilerias.getPropertyValue("reprint-receipt-request.mtcn", mijObject),
+                            miUtilerias.getPropertyValue("reprint-receipt-request.transaction_date", mijObject),
+                            miUtilerias.getPropertyValue("reprint-receipt-request.operation_type", mijObject),
+                            miUtilerias.getPropertyValue("header.country_code", mijObject), ref oError);
+                        utiProxy.SaveLog(recibo, "1", Key, 1, _config);
+                        //return recibo;
+                        break;
+
+                    default:
+                        utiProxy.SaveLog("Error en WorkFlow, no se ejecutó ninguna operación.", "1", Key, 1, _config);
+                        //throw new InvalidOperationException("Tipo de operación desconocida!");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                //responseRemesador = utiProxy.BuildResponse(ACGError.RequestIsNullOrEmpty, ex.Message, agency_code, sub_agent_user);
+                //utiProxy.SaveLog(responseRemesador, "1", Key, 1, _config);
+                oError = ex.Message;
+            }
+            responseRemesador = utiProxy.BuildResponse(ACGError.AWMError, "Ocurrió un error con la trama u obtención de Workflows", agency_code, sub_agent_user);
+            utiProxy.SaveLog(responseRemesador, "1", Key, 1, _config);
+            return responseRemesador;
+        }
+
+        internal JObject ejecutarActividades(List<Operacion> actividades, IConfiguration _config, string Request, int remesadorID, string Key)
+        {
+            //Authorizer auto = new Authorizer();
+            Proxy prox = new Proxy();
+            UtileriasAWM miUtilerias = new UtileriasAWM();
+            var miObject = JObject.Parse(Request);
+
+            foreach (var actividad in actividades)
+            {
+                string oError = "";
+                //Ejecutar operación.
+                //var trama = prox.ConstruirTramaRemesador(_config, remesadorID, miUtilerias.getPropertyValue("header.operation_product_id", miObject), actividad.NombreOperacion, miUtilerias.getPropertyValue("header.country_code", miObject), miObject);
+                if (actividad.actConsumeAutorizador)
+                {
+                    //Consumir autorizador
+                    //auto.ConsumeAuthorizer(Request, _config, oError);
+                    if (!string.IsNullOrEmpty(oError))
+                    {
+                        break;
+                    }
+                }
+                if (actividad.actConsumeProxy)
+                {
+                    //Consumir proxy.
+                    var valProx = prox.ConsumeProxy(Request, Key, _config);
+                    utiProxy.SaveLog(valProx, "1", Key, 1, _config);
+                    var validar = miUtilerias.getPropertyValue("Fault", valProx);
+                    if (!string.IsNullOrEmpty(validar))
+                    {
+                        var responseError = utiProxy.BuildResponse(ACGError.RequestIsNullOrEmpty, "Error!", agency_code, sub_agent_user);
+                        miUtilerias.SaveLog(responseError, "1", Key, 1, _config);
+                        return responseError;
+                        //return valProx;
+                    }
+
+                }
+            }
+            return miObject;
+        }
+        private int mValidateSGR(IConfiguration config, string trama, int oPais, string logkey, ref string oError, ref string oMensaje, ref string token, string tramaRespuesta = "")
+        {
+            int oRespuesta = -1;
+            string oidDoc = "";
+            string oPrimerNombre = "";
+            string oPrimerAp = "";
+            UtileriasAWM oAuth = new UtileriasAWM();
+
+            try
+            {
+
+                if (string.IsNullOrEmpty(tramaRespuesta))
+                {
+                    if (oAuth.ValidateSGR(config, trama, oPais, "VSM", logkey, ref oMensaje, ref token))
+                    {
+                        oRespuesta = 1;
+                    }
+                }
+                else
+                {
+                    if (oAuth.ValidateSGR(config, trama, oPais, "VSM_V", logkey, ref oMensaje, ref token, tramaRespuesta))
+                    {
+                        oRespuesta = 1;
+                    }
+                }
+            }
+            catch (Exception oex)
+            {
+                oError = oex.Message;
+            }
+
+            return oRespuesta;
+        }
+        /// <summary>
+        /// Clase que maneja la persistencia en del SGR, si tiene exito, devuelve 1, si no devuelve -1. 
+        /// </summary>
+        /// <param name="ocliente">clase que trae los parametros para realizar la validacion del cliente</param>
+        /// <param name="oPais">id que indica el país de donde procede la operación </param>
+        /// <param name="oError">string de referencia que indica si ocurrió algun error en el transcurso de la operación</param>
+        /// <param name="oMensaje">String que indica la lista de errores por lo que no fue validado el cliente</param>
+        /// <returns> entero que indica el id del cliente, si no existe devuelve 0, error devuelve -1</returns>
+        private int mStoreSGR(IConfiguration config, string trama, string sRespuesta, int oPais, string logkey, ref string oError, ref string oMensaje, string token)
+        {
+            int oRespuesta = 1;
+            string oidDoc = "";
+            string oPrimerNombre = "";
+            string oPrimerAp = "";
+            UtileriasAWM oAuth = new UtileriasAWM();
+
+            try
+            {
+                //idpais viene por referencia. Es el pais desde donde se hace la transacción 
+
+
+                oAuth.StoreSGR(config, trama, sRespuesta, "SSM", oPais, logkey, token);
+            }
+            catch (Exception oex)
+            {
+                oError = oex.Message;
+                oRespuesta = -1;
+            }
+
+            return oRespuesta;
+        }
+
+        public bool mvalidateCountry(string trama, string type, IConfiguration config)
+        {
+            string IsoCountry = "";
+            bool Country = false;
+
+            UtileriasAWM util = new UtileriasAWM();
+            IsoCountry = util.getIsoCountryValidation(trama, type);
+            Country = util.validateCountry(IsoCountry, config);
+
+            return Country;
+        }
+
+
+
+    }
+}
+
+
+
+
+
+//Comentarios a borrar después de revisión y listo para empezar pruebas.
+
+
+//Consumir proxy de actividades (temporal, por borrar).
+//var valProx = trama;
+//if (string.IsNullOrEmpty(valProx.ToString()))
+//{
+//    throw new Exception();
+//    //break;
+//}
+//if (valProx is XDocument || valProx is XElement)
+//{
+//    var jSON = JsonConvert.SerializeObject(valProx.Descendants(actividad.NombreOperacion.Replace("request", "reply")));//Aquí serializo del XML a JSON
+//    miObject.Add(new JProperty(jSON, new JObject()));//Aquí añado el jSON como nodo nuevo al orignial en miObject
+//}
+//else if (valProx is JObject)
+//{
+//    miObject.Add(new JProperty(valProx, new JObject()));//Aquí añado el jSON como nodo nuevo al orignial en miObject
+//    //Si este viene como un jObject
+//}
+
+//En el PROXY
+//var responseError = utiProxy.BuildResponse(ACGError.RequestIsNullOrEmpty, "No se obtuvo respuesta del Proxy", agency_code, sub_agent_user);
+//miUtilerias.SaveLog(valProx, "1", Key, 1, _config);
+//return responseError;
+//var responseError = utiProxy.BuildResponse(ACGError.RequestIsNullOrEmpty, "No se obtuvo respuesta del Proxy", agency_code, sub_agent_user);
+//miUtilerias.SaveLog(responseError, "1", Key, 1, _config);
+//return responseError;

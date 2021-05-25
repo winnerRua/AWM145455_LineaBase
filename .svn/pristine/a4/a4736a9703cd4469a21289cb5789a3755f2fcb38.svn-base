@@ -1,0 +1,1407 @@
+﻿using GrupoCoen.Corporativo.Libraries.ConexionBD;
+using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Globalization;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using WSREGPROXY.Helpers;
+using WSREGPROXY.Services;
+using System.Net;
+using System.IO;
+using ProxySGR;
+using System.Xml;
+using System.Xml.Linq;
+using WSREGAWM.Services;
+using System.Data;
+using WSREGAWM.Entities;
+using System.Data.SqlClient;
+using Newtonsoft.Json;
+
+namespace WSREGAWM.Helpers
+{
+    public class UtileriasAWM
+    {
+        MSSQLConnection oCon;
+        string oCS = String.Empty;
+        string oError;
+
+        WorkFlows oWF = new WorkFlows();
+        public dynamic ObtenerValoresAgencia(IConfiguration _config, string CodigoAgencia, string Producto, ref JObject jObjeto)
+        {
+            DataSet oDT = new DataSet();
+            DataTable oTable = new DataTable();
+            bool result = false;
+            WorkFlows oWF = new WorkFlows();
+            //var jSON = "";
+            JObject jSON = new JObject();
+
+            try
+            {
+                oCS = getAppSettingsKey("dbalias", _config);
+
+                oCon = new MSSQLConnection(oCS);
+
+                List<Parametros> oParam = new List<Parametros>();
+                oParam.Add(new Parametros("@AgencyCode", CodigoAgencia, Parametros.SType.VarChar));
+                oParam.Add(new Parametros("@ProductID", Producto, Parametros.SType.VarChar));
+
+                try
+                {
+                    result = oCon.executeSP("[remesadores].[sp_select_GWMMValoresAgencia]", oParam, MSSQLConnection.ReturnTypes.Dataset);
+                }
+                catch (SqlException oExQ)
+                {
+                    oError = oExQ.Message;
+                }
+                catch (Exception oEx)
+                {
+                    oError = oEx.Message;
+                }
+                finally
+                {
+                    oCon.closeConnection();
+                }
+
+                if (!result)
+                {
+                    if (string.IsNullOrEmpty(oError))
+                        oError = oCon.getMessage();
+
+                    return new WorkFlows();
+                }
+
+                oDT = oCon.getDataset();
+
+                if (oDT.Tables.Count == 0)
+                {
+                    oError = "La busqueda no obtuvo ningún dato de WorkFlow";
+                    throw new Exception();
+                }
+
+                oTable = oDT.Tables[0];
+
+                if (oTable.Rows.Count == 0)
+                {
+                    oError = "La busqueda no obtuvo ningún dato de Workflow";
+                    throw new Exception();
+                }
+                JObject header = (JObject)jObjeto["header"];
+                //var json1 = "{ \"name\" : \"sai\", \"age\" : 22, \"salary\" : 25000}";
+                //var json2 = "{ \"name\" : \"sai\", \"age\" : 23, \"Gender\" : \"male\"}";
+
+                //var object1 = JObject.Parse(json1);
+                //var object2 = JObject.Parse(json2);
+
+                //foreach (var prop in oTable.Rows)
+                //{
+                //    var targetProperty = header.Property("header");
+
+                //    if (targetProperty == null)
+                //    {
+                //        header.Add(pro, prop.Value);
+                //    }
+                //    else
+                //    {
+                //        targetProperty.Value = prop.Value;
+                //    }
+                //}
+
+                //var result = object1.ToString(Formatting.None);
+                ////JObject update = JObject.Parse(jstr);
+
+                //foreach (var token in oTable.Rows)
+                //{
+                //    foreach (var x in header)
+                //    {
+                //        string name = x.Key;
+                //        JToken value = x.Value;
+                //        token. Replace(value);
+                //    }
+                //}
+                //header.Add(item["counter_id"].ToString(), internalObject);
+                //return JsonConvert.SerializeObject(jobj, jf);
+                //JObject header = (JObject)jObjeto["header"];
+                //header.Property("counter_id").Replace(new JProperty("counter_id", oTable.Rows[0].Field<string>("CounterID")));
+                //header.Property("terminal_id").Replace(new JProperty("terminal_id", oTable.Rows[0].Field<string>("TerminalID")));
+                //header.Property("cuenta_ml").();
+                //header.Property("agency_id").Remove();
+                //header.Property("user").Remove();
+                //header.Property("password").Remove();
+                //header.Property("product_id").Remove();
+                header.Property("terminal_id").Remove();
+                header.Property("agency_id").Remove();
+                header.Property("user").Remove();
+                header.Property("password").Remove();
+                header.Add(new JProperty("counter_id", oTable.Rows[0].Field<string>("CounterID")));
+                header.Add(new JProperty("terminal_id", oTable.Rows[0].Field<string>("TerminalID")));
+                header.Add(new JProperty("cuenta_ml", oTable.Rows[0].Field<string>("CuentaML")));
+                header.Add(new JProperty("agency_id", oTable.Rows[0].Field<int>("Agency_id")));
+                header.Add(new JProperty("user", oTable.Rows[0].Field<string>("user1")));
+                header.Add(new JProperty("password", oTable.Rows[0].Field<string>("password1")));
+                header.Add(new JProperty("product_id", oTable.Rows[0].Field<string>("ProductID")));
+                //jObjeto.Property("operation_id").AddAfterSelf(new JProperty());
+                //var json = (from query in oTable.AsEnumerable()
+                //            select new
+                //            {
+                //                CounterID = query.Field<string>("CounterID"),
+                //                TerminalID = query.Field<string>("TerminalID"),
+                //                AgenciaCuenta = query.Field<string>("CuentaML"),
+                //                IDAgencia = query.Field<int>("Agency_id"),
+                //                Usuario = query.Field<string>("user1"),
+                //                Contraseña = query.Field<string>("password1"),
+                //                ProductoID = query.Field<int>("ProductID")
+                //            }).FirstOrDefault();
+                //jSON = JObject.Parse(JsonConvert.SerializeObject(json));
+                jSON = header;
+            }
+            catch (Exception ex)
+            {
+                oError = ex.Message;
+            }
+            //var resultado1 = jSON;
+            return jSON;
+        }
+
+        internal string encontrarValorNodo(JObject jObject, string nodo)
+        {
+            string value = string.Empty;
+            bool isValueFinded = false;
+
+            foreach (var jitem in jObject)
+            {
+                if (isValueFinded)
+                    break;
+
+                if (jitem.Value.Type == JTokenType.Object)
+                {
+                    if (jitem.Key.ToString() == nodo)
+                    {
+                        value = jitem.Value.ToString();
+                        isValueFinded = true;
+                        break;
+                    }
+                    var jSubObject = (JObject)jitem.Value;
+                    foreach (var jsubitem in jSubObject)
+                    {
+                        if (jsubitem.Key.ToString() == nodo)
+                        {
+                            value = jsubitem.Value.ToString();
+                            isValueFinded = true;
+                            break;
+                        }
+                        else if (jsubitem.Value.Type == JTokenType.Object)
+                        {
+                            value = encontrarValorNodo((JObject)jsubitem.Value, nodo);
+                            isValueFinded = true;
+                            break;
+                        }
+
+                    }
+                }
+                else
+                {
+                    if (jitem.Key.ToString() == nodo)
+                    {
+                        value = jitem.Value.ToString();
+                        isValueFinded = true;
+                        break;
+                    }
+                }
+            }
+            return value;
+        }
+        internal string encontrarValor(JObject jObject, string nodo)
+        {
+            string value = string.Empty;
+            bool isValueFinded = false;
+
+            foreach (var jitem in jObject)
+            {
+                if (isValueFinded)
+                    break;
+
+                if (jitem.Value.Type == JTokenType.Object)
+                {
+                    if (jitem.Key.ToString() == nodo)
+                    {
+                        value = jitem.Value.ToString();
+                        isValueFinded = true;
+                        break;
+                    }
+                    var jSubObject = (JObject)jitem.Value;
+                    foreach (var jsubitem in jSubObject)
+                    {
+                        if (jsubitem.Key.ToString() == nodo)
+                        {
+                            value = jsubitem.Value.ToString();
+                            isValueFinded = true;
+                            break;
+                        }
+                        else if (jsubitem.Value.Type == JTokenType.Object)
+                        {
+                            value = encontrarValorNodo((JObject)jsubitem.Value, nodo);
+                            isValueFinded = true;
+                            break;
+                        }
+
+                    }
+                }
+                else
+                {
+                    if (jitem.Key.ToString() == nodo)
+                    {
+                        value = jitem.Value.ToString();
+                        isValueFinded = true;
+                        break;
+                    }
+                }
+            }
+            return value;
+        }
+        internal string getAppSettingsKey(string KeyName, IConfiguration _config, string keySection = "AppSettings")
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(KeyName))
+                    throw new Exception();
+                return _config.GetValue<string>(keySection + ":" + KeyName);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        internal string getServicesKey(string KeyName, IConfiguration _config, string keySection = "Servicios")
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(KeyName))
+                    throw new Exception();
+                return _config.GetValue<string>(keySection + ":" + KeyName);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+        internal string getPropertyValue(string compoundProperty, JObject myObject)
+        {
+            string[] bits = compoundProperty.Split('.');
+
+            for (int i = 0; i < bits.Length - 1; i++)
+            {
+                var auxObject = myObject.Properties().Where(prop => prop.Name == bits[i]).FirstOrDefault()?.Value?.ToString();
+                if (!string.IsNullOrEmpty(auxObject))
+                    myObject = JObject.Parse(auxObject);
+            }
+
+            return myObject.Properties().Where(prop => prop.Name == bits[bits.Length - 1]).FirstOrDefault()?.Value?.ToString();
+        }
+
+        internal void SaveLog(dynamic pMetadata, string identificadorEvento, string keyEvent, int ComponentID, IConfiguration _config)
+        {
+            try
+            {
+                string oError = string.Empty;
+                SaveLogDataDelegate.SaveLogDataDelegateAsync(pMetadata, identificadorEvento, keyEvent, ComponentID, _config);
+            }
+            catch (Exception ex)
+            {
+                throw (ex);
+            }
+        }
+
+        internal dynamic autorizadorRest(dynamic trama, string keyLog, IConfiguration _config)
+        {
+            var url = new UtileriasAWM().getServicesKey("servicioConsumeAutorizador", _config);//La URL debe venir de appsettings //Preguntar como consumir acá el AUTORIZADOR 
+            dynamic result = "";
+            var request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "POST";
+            request.ContentType = "application/json";
+            request.Accept = "application/json";
+
+            try
+            {
+                using (WebResponse response = request.GetResponse())
+                {
+                    using (Stream strReader = response.GetResponseStream())
+                    {
+                        using (StreamReader objReader = new StreamReader(strReader))
+                        {
+                            string responseBody = objReader.ReadToEnd();
+                            return responseBody;
+                            //Console.WriteLine(responseBody);
+                        }
+                        //No borrar aún, por prueba
+                        //if (strReader == null)
+                        //{
+
+                        //}
+                    }
+                }
+               //return JObject.Parse(responseBody);
+            }
+            catch (Exception ex)
+            {
+                oError = ex.Message;
+                throw new Exception(oError);
+            }
+        }
+
+
+        internal dynamic tipoTrans(string Request, string tipo)
+        {
+            string paisValidacion = String.Empty;
+            string guardaTransaccion = String.Empty;
+            var tasa = 1;
+            var mijObject = JObject.Parse(Request);
+
+            if (tipo == "ENVIO")
+            {
+                Dictionary<dynamic, dynamic> ENVIO = new Dictionary<dynamic, dynamic>();
+                ENVIO.Add("PaisValidacion", getPropertyValue("header.country_code", mijObject));
+                //ENVIO.Add("tipoTransaccion", miUtilerias.getPropertyValue("header.terminal_id", mijObject));
+                //ENVIO.Add("guardaTransaccion", miUtilerias.getPropertyValue("header.country_code", mijObject));
+                ENVIO.Add("IdTerminal", getPropertyValue("header.terminal_id", mijObject));
+                ENVIO.Add("PaisID", getPropertyValue("header.originating_country_id", mijObject));
+                ENVIO.Add("NumeroOperador", getPropertyValue("send-money-store-request.operator", mijObject));
+                ENVIO.Add("AgenciaID", getPropertyValue("header.agency_id", mijObject));
+                ENVIO.Add("MTCN", getPropertyValue("send-money-store-request.mtcn", mijObject));
+                ENVIO.Add("PaisRem", getPropertyValue("send-money-store-request.sender.address.country_code.country_name", mijObject));
+                ENVIO.Add("EstadoRem", getPropertyValue("send-money-store-request.sender.address.state", mijObject));
+                ENVIO.Add("CiudadRem", getPropertyValue("send-money-store-request.sender.address.city", mijObject));
+                ENVIO.Add("PrimerNombreRem", getPropertyValue("send-money-store-request.sender.name.first_name", mijObject));
+
+                ENVIO.Add("PrimerApellidoRem", getPropertyValue("send-money-store-request.sender.name.paternal_name", mijObject));
+                ENVIO.Add("SegundoNombreRem", getPropertyValue("send-money-store-request.sender.name.middle_name", mijObject));
+                ENVIO.Add("SegundoApellidoRem", getPropertyValue("send-money-store-request.sender.name.maternal_name", mijObject));
+                ENVIO.Add("ApellidoCasadaRem", getPropertyValue("send-money-store-request.sender.name.married_name", mijObject));
+                ENVIO.Add("Remitente", getPropertyValue("send-money-store-request.sender.name.given_name", mijObject) + " " + getPropertyValue("send-money-store-request.sender.name.paternal_name", mijObject) + " " + getPropertyValue("send-money-store-request.sender.name.maternal_name", mijObject));
+                ENVIO.Add("PaisBen", getPropertyValue("send-money-store-request.receiver.address.country_code.country_name", mijObject));
+                ENVIO.Add("EstadoBen", getPropertyValue("send-money-store-request.receiver.address.state", mijObject));
+                ENVIO.Add("CiudadBen", getPropertyValue("send-money-store-request.receiver.address.city", mijObject));
+                ENVIO.Add("PrimerNombreBen", getPropertyValue("send-money-store-request.receiver.name.first_name", mijObject));
+                ENVIO.Add("PrimerApellidoBen", getPropertyValue("send-money-store-request.receiver.name.paternal_name", mijObject));
+
+                ENVIO.Add("SegundoNombreBen", getPropertyValue("send-money-store-request.receiver.name.middle_name", mijObject));
+                ENVIO.Add("SegundoApellidoBen", getPropertyValue("send-money-store-request.receiver.name.maternal_name", mijObject));
+                ENVIO.Add("ApellidoCasadaBen", getPropertyValue("send-money-store-request.receiver.name.married_name", mijObject));
+                ENVIO.Add("Beneficiario", getPropertyValue("send-money-store-request.receiver.name.give_name", mijObject) + " " + getPropertyValue("send-money-store-request.receiver.name.paternal_name", mijObject) + " " + getPropertyValue("send-money-store-request.receiver.name.maternal_name", mijObject));
+                ENVIO.Add("TipoDocumento", getPropertyValue("send-money-store-request.sender.compliance_details.id_details.id_type", mijObject));
+                ENVIO.Add("NumeroDocumento", getPropertyValue("send-money-store-request.sender.compliance_details.id_details.id_number", mijObject));
+                ENVIO.Add("EmitidoPor", getPropertyValue("send-money-store-request.sender.compliance_details.id_details.id_country_of_issue", mijObject));
+                ENVIO.Add("LugarEmision", getPropertyValue("send-money-store-request.sender.compliance_details.id_details.id_place_of_issue", mijObject));
+                ENVIO.Add("FechaEmision", DateTime.ParseExact(getPropertyValue("send-money-store-request.sender.compliance_details.id_issue_date", mijObject), "ddMMyyyy", CultureInfo.InvariantCulture));
+                ENVIO.Add("FechaExpiracion", DateTime.ParseExact(getPropertyValue("send-money-store-request.sender.compliance_details.id_expiration_date", mijObject), "ddMMyyyy", CultureInfo.InvariantCulture));
+
+                ENVIO.Add("Nacionalidad", getPropertyValue("send-money-store-request.sender.address.country_code.country_name", mijObject));
+                ENVIO.Add("DirLinea1", getPropertyValue("send-money-store-request.sender.address.addr_line1", mijObject));
+                ENVIO.Add("DirLinea2", getPropertyValue("send-money-store-request.sender.address.addr_line2", mijObject));
+                var indicaciones = getPropertyValue("send-money-store-request.sender.address.addr_line1", mijObject) + " " + getPropertyValue("send-money-store-request.sender.address.addr_line2", mijObject);
+                ENVIO.Add("Indicaciones", indicaciones);
+                ENVIO.Add("Sexo", getPropertyValue("send-money-store-request.sender.gender", mijObject));
+                var estadoCivil = getPropertyValue("send-money-store-request.sender.compliance_details.Marital_Status", mijObject);
+                switch (estadoCivil)
+                {
+                    case "Common-law marriage":
+                        estadoCivil = "U";
+                        break;
+
+                    case "Married":
+                        estadoCivil = "C";
+                        break;
+                    case "Widow":
+                        estadoCivil = "V";
+                        break;
+                    default:
+                        estadoCivil = getPropertyValue("send-money-store-request.sender.compliance_details.Marital_Status", mijObject).ToString().Substring(0, 1);
+                        break;
+                }
+                ENVIO.Add("EstadoCivil", estadoCivil);
+                ENVIO.Add("FechaNacimiento", DateTime.ParseExact(getPropertyValue("send-money-store-request.sender.date_of_birth", mijObject), "ddMMyyyy", CultureInfo.InvariantCulture));
+                ENVIO.Add("Profesion", getPropertyValue("send-money-store-request.sender.compliance_details.occupation", mijObject));
+                ENVIO.Add("LugarTrabajo", getPropertyValue("send-money-store-request.sender.compliance_details.Name_of_Employer_Business", mijObject));
+                ENVIO.Add("TipoTelefono", getPropertyValue("send-money-store-request.sender.phone_type", mijObject));
+
+                ENVIO.Add("NumeroTelefono", getPropertyValue("send-money-store-request.sender.contact_phone", mijObject));
+                ENVIO.Add("Dato1", getPropertyValue("send-money-store-request.sender.compliance_details.additional_info.source_of_funds", mijObject) + " " + getPropertyValue("send-money-store-request.sender.compliance_details.additional_info.destination_of_funds", mijObject));
+                ENVIO.Add("Dato2", getPropertyValue("send-money-store-request.sender.compliance_details.additional_info.type_of_relationship", mijObject) + " " + getPropertyValue("send-money-store-request.sender.compliance_details.additional_info.is_not_final_sender_receiver", mijObject));
+                ENVIO.Add("ClienteID", 1);
+                ENVIO.Add("CtaAgencia", getPropertyValue("header.agency_account", mijObject));
+                ENVIO.Add("CtaBanco", 0);
+                var moneda = getPropertyValue("send-money-store-request.payment_details.originating_country_currency.iso_code.currency_code", mijObject);
+                if (moneda == "USD")
+                {
+                    decimal montoPrincipal = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.originators_principal_amount", mijObject));
+                    decimal monto = montoPrincipal / 100;
+                    ENVIO.Add("Monto", monto);
+                    ENVIO.Add("MontoML", monto * tasa);
+                    ENVIO.Add("Tasa", tasa);
+                    decimal cargos = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.charges", mijObject)) / 100;
+                    ENVIO.Add("Cargos", cargos);
+
+                    ENVIO.Add("CargosML", cargos * tasa);
+                    decimal pCharge = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.plus_charges_amount", mijObject)) / 100;
+                    ENVIO.Add("CargosxEntrega", pCharge);
+                    ENVIO.Add("CargosxEntregaML", pCharge * tasa);
+                    decimal mCharges = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.message_charge", mijObject)) / 100;
+                    ENVIO.Add("CargosxMensaje", mCharges);
+                    ENVIO.Add("CargosxMensajeML", mCharges * tasa);
+                    decimal mun_tax = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.taxes.municipal_tax", mijObject));
+                    decimal st_tax = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.taxes.state_tax", mijObject));
+                    decimal coun_tax = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.taxes.county_tax", mijObject));
+                    decimal tax = (mun_tax + st_tax + coun_tax) / 100;
+                    ENVIO.Add("Impuesto", tax);
+
+                    decimal impuestoML = tax * tasa;
+                    ENVIO.Add("ImpuestoML", impuestoML);
+                }
+                else
+                {
+                    decimal montoPrincipal = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.originators_principal_amount", mijObject));
+                    decimal monto = montoPrincipal / 100;
+                    ENVIO.Add("Monto", monto / tasa);
+                    ENVIO.Add("MontoML", monto);
+                    ENVIO.Add("Tasa", tasa);
+                    decimal cargos = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.charges", mijObject)) / 100;
+                    ENVIO.Add("Cargos", cargos / tasa);
+
+                    ENVIO.Add("CargosML", cargos);
+                    decimal pCharge = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.plus_charges_amount", mijObject)) / 100;
+                    ENVIO.Add("CargosxEntrega", pCharge / tasa);
+                    ENVIO.Add("CargosxEntregaML", pCharge);
+                    decimal mCharges = Convert.ToDecimal(getPropertyValue("send-money-store-request.financials.message_charge", mijObject)) / 100;
+                    ENVIO.Add("CargosxMensaje", mCharges / tasa);
+                    ENVIO.Add("CargosxMensajeML", mCharges);
+                    double mun_tax = Convert.ToDouble(getPropertyValue("send-money-store-request.financials.taxes.municipal_tax", mijObject));
+                    double st_tax = Convert.ToDouble(getPropertyValue("send-money-store-request.financials.taxes.state_tax", mijObject));
+                    double coun_tax = Convert.ToDouble(getPropertyValue("send-money-store-request.financials.taxes.county_tax", mijObject));
+                    var tax = (mun_tax + st_tax + coun_tax) / 100;
+                    ENVIO.Add("Impuesto", tax / tasa);
+                    ENVIO.Add("ImpuestoML", tax);
+                }
+
+                ENVIO.Add("WUCard", getPropertyValue("send-money-store-request.sender.preferred_customer.account_nbr", mijObject));
+                ENVIO.Add("NumFact", getPropertyValue("header.bill_data.number", mijObject));
+                ENVIO.Add("NameFact", getPropertyValue("header.bill_data.name", mijObject));
+
+                ENVIO.Add("DirFact", getPropertyValue("header.bill_data.address", mijObject));
+                ENVIO.Add("NIT", getPropertyValue("header.bill_data.nit", mijObject));
+                ENVIO.Add("Serie", getPropertyValue("header.bill_data.series", mijObject));
+                var paisSender = getPropertyValue("send-money-store-request.sender.address.country_code.country_name", mijObject);
+                var paisReceiver = getPropertyValue("send-money-store-request.receiver.address.country_code.country_name", mijObject);
+                int tipoEnvio = 0;
+                if (paisSender == paisReceiver)
+                {
+                    tipoEnvio = 1;
+                }
+                else
+                {
+                    tipoEnvio = 2;
+                }
+                ENVIO.Add("TipoEnvio", tipoEnvio);
+                ENVIO.Add("EstatusAct", "");
+                ENVIO.Add("EstatusSet", "");
+                ENVIO.Add("UsuarioID", 1);
+                ENVIO.Add("FechaEnvio", DateTime.Today);
+                ENVIO.Add("Fecha", DateTime.Today);
+                ENVIO.Add("FechaCreacion", DateTime.Today);
+
+                return ENVIO;
+            }
+            else if (tipo == "PAGO")
+            {
+                Dictionary<dynamic, dynamic> PAGO = new Dictionary<dynamic, dynamic>();
+                PAGO.Add("PaisValidacion", getPropertyValue("header.country_code", mijObject));
+                //PAGO.Add("tipoTransaccion", miUtilerias.getPropertyValue("header.terminal_id", mijObject));
+                //PAGO.Add("guardaTransaccion", miUtilerias.getPropertyValue("header.country_code", mijObject));
+                PAGO.Add("IdTerminal", getPropertyValue("header.terminal_id", mijObject));
+                PAGO.Add("PaisID", getPropertyValue("header.originating_country_id", mijObject));
+                PAGO.Add("NumeroOperador", getPropertyValue("receive-money-pay-request.operator", mijObject));
+                PAGO.Add("AgenciaID", getPropertyValue("header.agency_id", mijObject));
+                PAGO.Add("MTCN", getPropertyValue("receive-money-pay-request.mtcn", mijObject));
+                PAGO.Add("PaisRem", getPropertyValue("header.sender.address.country_name", mijObject));
+                PAGO.Add("EstadoRem", getPropertyValue("header.sender.address.state", mijObject));
+                PAGO.Add("CiudadRem", getPropertyValue("header.sender.address.city", mijObject));
+                PAGO.Add("PrimerNombreRem", getPropertyValue("header.sender.name.first_name", mijObject));
+
+                PAGO.Add("PrimerApellidoRem", getPropertyValue("header.sender.name.paternal_name", mijObject));
+                PAGO.Add("SegundoNombreRem", getPropertyValue("header.sender.name.middle_name", mijObject));
+                PAGO.Add("SegundoApellidoRem", getPropertyValue("header.sender.name.maternal_name", mijObject));
+                PAGO.Add("ApellidoCasadaRem", getPropertyValue("header.sender.name.married_name", mijObject));
+                PAGO.Add("Remitente", getPropertyValue("header.sender.name.given_name", mijObject) + " " + getPropertyValue("header.sender.name.paternal_name", mijObject) + " " + getPropertyValue("header.sender.name.maternal_name", mijObject));
+                PAGO.Add("PaisBen", getPropertyValue("receive-money-pay-request.receiver.address.country_code.country_name", mijObject));
+                PAGO.Add("EstadoBen", getPropertyValue("receive-money-pay-request.receiver.address.state", mijObject));
+                PAGO.Add("CiudadBen", getPropertyValue("receive-money-pay-request.receiver.address.city", mijObject));
+                PAGO.Add("PrimerNombreBen", getPropertyValue("receive-money-pay-request.receiver.name.first_name", mijObject));
+                PAGO.Add("PrimerApellidoBen", getPropertyValue("receive-money-pay-request.receiver.name.paternal_name", mijObject));
+
+                PAGO.Add("SegundoNombreBen", getPropertyValue("receive-money-pay-request.receiver.name.middle_name", mijObject));
+                PAGO.Add("SegundoApellidoBen", getPropertyValue("receive-money-pay-request.receiver.name.maternal_name", mijObject));
+                PAGO.Add("ApellidoCasadaBen", getPropertyValue("receive-money-pay-request.receiver.name.married_name", mijObject));
+                PAGO.Add("Beneficiario", getPropertyValue("receive-money-pay-request.receiver.name.given_name", mijObject) + " " + getPropertyValue("receive-money-pay-request.receiver.name.paternal_name", mijObject) + " " + getPropertyValue("receive-money-pay-request.receiver.name.maternal_name", mijObject));
+                PAGO.Add("TipoDocumento", getPropertyValue("receive-money-pay-request.receiver.compliance_details.id_details.id_type", mijObject));
+                PAGO.Add("NumeroDocumento", getPropertyValue("receive-money-pay-request.receiver.compliance_details.id_details.id_number", mijObject));
+                PAGO.Add("EmitidoPor", getPropertyValue("receive-money-pay-request.receiver.compliance_details.id_details.id_country_of_issue", mijObject));
+                PAGO.Add("LugarEmision", getPropertyValue("receive-money-pay-request.receiver.compliance_details.id_details.id_place_of_issue", mijObject));
+                PAGO.Add("FechaEmision", DateTime.ParseExact(getPropertyValue("receive-money-pay-request.receiver.compliance_details.id_issue_date", mijObject), "ddMMyyyy", CultureInfo.InvariantCulture));
+                PAGO.Add("FechaExpiracion", DateTime.ParseExact(getPropertyValue("receive-money-pay-request.receiver.compliance_details.id_expiration_date", mijObject), "ddMMyyyy", CultureInfo.InvariantCulture));
+
+                PAGO.Add("Nacionalidad", getPropertyValue("receive-money-pay-request.receiver.address.country_code.country_name", mijObject));
+                PAGO.Add("DirLinea1", getPropertyValue("receive-money-pay-request.receiver.compliance_details.Current_address.addr_line1", mijObject));
+                PAGO.Add("DirLinea2", getPropertyValue("receive-money-pay-request.receiver.compliance_details.Current_address.addr_line2", mijObject));
+                var indicaciones = getPropertyValue("receive-money-pay-request.receiver.compliance_details.Current_address.addr_line1", mijObject) + " " + getPropertyValue("receive-money-pay-request.receiver.compliance_details.Current_address.addr_line2", mijObject);
+                PAGO.Add("Indicaciones", indicaciones);
+                PAGO.Add("Sexo", getPropertyValue("receive-money-pay-request.receiver.compliance_details.Gender", mijObject));
+                var estadoCivil = getPropertyValue("receive-money-pay-request.receiver.compliance_details.Marital_Status", mijObject);
+                switch (estadoCivil)
+                {
+                    case "Common-law marriage":
+                        estadoCivil = "U";
+                        break;
+
+                    case "Married":
+                        estadoCivil = "C";
+                        break;
+                    case "Widow":
+                        estadoCivil = "V";
+                        break;
+                    default:
+                        estadoCivil = getPropertyValue("receive-money-pay-request.receiver.compliance_details.Marital_Status", mijObject).ToString().Substring(0, 1);
+                        break;
+                }
+                PAGO.Add("EstadoCivil", estadoCivil);
+                PAGO.Add("FechaNacimiento", DateTime.ParseExact(getPropertyValue("receive-money-pay-request.receiver.compliance_details.date_of_birth", mijObject), "ddMMyyyy", CultureInfo.InvariantCulture));
+                PAGO.Add("Profesion", getPropertyValue("receive-money-pay-request.receiver.compliance_details.occupation", mijObject));
+                PAGO.Add("LugarTrabajo", getPropertyValue("receive-money-pay-request.receiver.compliance_details.Name_of_Employer_Business", mijObject));
+                PAGO.Add("TipoTelefono", getPropertyValue("receive-money-pay-request.receiver.phone_type", mijObject));
+
+                PAGO.Add("NumeroTelefono", getPropertyValue("receive-money-pay-request.receiver.compliance_details.contact_phone", mijObject));
+                PAGO.Add("Dato1", getPropertyValue("receive-money-pay-request.receiver.compliance_details.additional_info.source_of_funds", mijObject) + " " + getPropertyValue("receive-money-pay-request.receiver.compliance_details.additional_info.destination_of_funds", mijObject));
+                PAGO.Add("Dato2", getPropertyValue("receive-money-pay-request.receiver.compliance_details.additional_info.type_of_relationship", mijObject) + " " + getPropertyValue("receive - money - pay - request.receiver.compliance_details.additional_info.age", mijObject));
+                PAGO.Add("ClienteID", 1);
+                PAGO.Add("CtaAgencia", getPropertyValue("header.agency_code", mijObject));
+                PAGO.Add("CtaBanco", 0);
+                var moneda = getPropertyValue("receive-money-pay-request.payment_details.destination_country_currency.iso_code.currency_code", mijObject);
+                if (moneda == "USD")
+                {
+                    decimal montoPrincipal = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.principal_amount", mijObject));
+                    decimal monto = montoPrincipal / 100;
+                    PAGO.Add("Monto", monto);
+                    PAGO.Add("MontoML", monto * tasa);
+                    PAGO.Add("Tasa", tasa);
+                    decimal cargos = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.charges", mijObject)) / 100;
+                    PAGO.Add("Cargos", cargos);
+
+                    PAGO.Add("CargosML", cargos * tasa);
+                    decimal pCharge = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.charges", mijObject)) / 100;
+                    PAGO.Add("CargosxEntrega", pCharge);
+                    PAGO.Add("CargosxEntregaML", pCharge * tasa);
+                    decimal mCharges = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.message_charge", mijObject)) / 100;
+                    PAGO.Add("CargosxMensaje", mCharges);
+                    PAGO.Add("CargosxMensajeML", mCharges * tasa);
+                    decimal mun_tax = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.taxes.municipal_tax", mijObject));
+                    decimal st_tax = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.taxes.state_tax", mijObject));
+                    decimal coun_tax = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.taxes.county_tax", mijObject));
+                    decimal tax = (mun_tax + st_tax + coun_tax) / 100;
+                    PAGO.Add("Impuesto", tax);
+
+                    decimal impuestoML = tax * tasa;
+                    PAGO.Add("ImpuestoML", impuestoML);
+                }
+                else
+                {
+                    decimal montoPrincipal = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.principal_amount", mijObject));
+                    decimal monto = montoPrincipal / 100;
+                    PAGO.Add("Monto", monto / tasa);
+                    PAGO.Add("MontoML", monto);
+                    PAGO.Add("Tasa", tasa);
+                    decimal cargos = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.charges", mijObject)) / 100;
+                    PAGO.Add("Cargos", cargos / tasa);
+
+                    PAGO.Add("CargosML", cargos);
+                    decimal pCharge = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.plus_charges_amount", mijObject)) / 100;
+                    PAGO.Add("CargosxEntrega", pCharge / tasa);
+                    PAGO.Add("CargosxEntregaML", pCharge);
+                    decimal mCharges = Convert.ToDecimal(getPropertyValue("receive-money-pay-request.financials.message_charge", mijObject)) / 100;
+                    PAGO.Add("CargosxMensaje", mCharges / tasa);
+                    PAGO.Add("CargosxMensajeML", mCharges);
+                    double mun_tax = Convert.ToDouble(getPropertyValue("receive-money-pay-request.financials.taxes.municipal_tax", mijObject));
+                    double st_tax = Convert.ToDouble(getPropertyValue("receive-money-pay-request.financials.taxes.state_tax", mijObject));
+                    double coun_tax = Convert.ToDouble(getPropertyValue("receive-money-pay-request.financials.taxes.county_tax", mijObject));
+                    var tax = (mun_tax + st_tax + coun_tax) / 100;
+                    PAGO.Add("Impuesto", tax / tasa);
+                    PAGO.Add("ImpuestoML", tax);
+                }
+
+                PAGO.Add("WUCard", getPropertyValue("receive-money-pay-request.receiver.preferred_customer.account_nbr", mijObject));
+                PAGO.Add("NumFact", getPropertyValue("header.bill_data.number", mijObject));
+                PAGO.Add("NameFact", getPropertyValue("header.bill_data.name", mijObject));
+
+                PAGO.Add("DirFact", getPropertyValue("header.bill_data.address", mijObject));
+                PAGO.Add("NIT", getPropertyValue("header.bill_data.nit", mijObject));
+                PAGO.Add("Serie", getPropertyValue("header.bill_data.series", mijObject));
+                var paisSender = getPropertyValue("header.sender.address.country_name", mijObject);
+                var paisReceiver = getPropertyValue("receive-money-pay-request.receiver.address.country_code.country_name", mijObject);
+                int tipoEnvio = 0;
+                if (paisSender == paisReceiver)
+                {
+                    tipoEnvio = 1;
+                }
+                else
+                {
+                    tipoEnvio = 2;
+                }
+                PAGO.Add("TipoEnvio", tipoEnvio);
+                PAGO.Add("EstatusAct", "");
+                PAGO.Add("EstatusSet", "");
+                PAGO.Add("UsuarioID", 1);
+                PAGO.Add("FechaEnvio", DateTime.Today);
+                PAGO.Add("Fecha", DateTime.Today);
+                PAGO.Add("FechaCreacion", DateTime.Today);
+
+                return PAGO;
+            }
+            return "Operación no ejecutada, revise o comuníquise con el administrador.";
+        }
+        public bool mvalidateCountry(string trama, string type, IConfiguration config)
+        {
+            string IsoCountry = "";
+            bool Country = false;
+
+            UtileriasAWM util = new UtileriasAWM();
+            IsoCountry = util.getIsoCountryValidation(trama, type);
+            Country = util.validateCountry(IsoCountry, config);
+
+            return Country;
+        }
+
+        /// <summary>
+        /// Clase que maneja la validación del SGR, si tiene exito, devuelve 1, si no devuelve -1. 
+        /// </summary>
+        /// <param name="ocliente">clase que trae los parametros para realizar la validacion del cliente</param>
+        /// <param name="oPais">id que indica el país de donde procede la operación </param>
+        /// <param name="oError">string de referencia que indica si ocurrió algun error en el transcurso de la operación</param>
+        /// <param name="oMensaje">String que indica la lista de errores por lo que no fue validado el cliente</param>
+        /// <returns> entero que indica el id del cliente, si no existe devuelve 0, error devuelve -1</returns>
+        private int mValidateSGR(IConfiguration config, string trama, int oPais, string logkey, ref string oError, ref string oMensaje, ref string token, string tramaRespuesta = "")
+        {
+            int oRespuesta = -1;
+            string oidDoc = "";
+            string oPrimerNombre = "";
+            string oPrimerAp = "";
+            UtileriasAWM oAuth = new UtileriasAWM();
+
+            try
+            {
+                //idpais viene por referencia. Es el pais desde donde se hace la transacción 
+                //oidDoc = ocliente._NumeroDocumento;
+                //oPrimerNombre = ocliente._PrimerNombre;
+                //oPrimerAp = ocliente._PrimerApellido;
+                //oPais = ocliente._IdPaisOrigen;
+
+                if (string.IsNullOrEmpty(tramaRespuesta))
+                {
+                    if (oAuth.ValidateSGR(config, trama, oPais, "VSM", logkey, ref oMensaje, ref token))
+                    {
+                        oRespuesta = 1;
+                    }
+                }
+                else
+                {
+                    if (oAuth.ValidateSGR(config, trama, oPais, "VSM_V", logkey, ref oMensaje, ref token, tramaRespuesta))
+                    {
+                        oRespuesta = 1;
+                    }
+                }
+            }
+            catch (Exception oex)
+            {
+                oError = oex.Message;
+            }
+
+            return oRespuesta;
+        }
+        /// <summary>
+        /// Clase que maneja la persistencia en del SGR, si tiene exito, devuelve 1, si no devuelve -1. 
+        /// </summary>
+        /// <param name="ocliente">clase que trae los parametros para realizar la validacion del cliente</param>
+        /// <param name="oPais">id que indica el país de donde procede la operación </param>
+        /// <param name="oError">string de referencia que indica si ocurrió algun error en el transcurso de la operación</param>
+        /// <param name="oMensaje">String que indica la lista de errores por lo que no fue validado el cliente</param>
+        /// <returns> entero que indica el id del cliente, si no existe devuelve 0, error devuelve -1</returns>
+        private int mStoreSGR(IConfiguration config, string trama, string sRespuesta, int oPais, string logkey, ref string oError, ref string oMensaje, string token)
+        {
+            int oRespuesta = 1;
+            string oidDoc = "";
+            string oPrimerNombre = "";
+            string oPrimerAp = "";
+            UtileriasAWM oAuth = new UtileriasAWM();
+
+            try
+            {
+                //idpais viene por referencia. Es el pais desde donde se hace la transacción 
+                //oidDoc = ocliente._NumeroDocumento;
+                //oPrimerNombre = ocliente._PrimerNombre;
+                //oPrimerAp = ocliente._PrimerApellido;
+                //oPais = ocliente._IdPaisOrigen;
+
+                oAuth.StoreSGR(config, trama, sRespuesta, "SSM", oPais, logkey, token);
+            }
+            catch (Exception oex)
+            {
+                oError = oex.Message;
+                oRespuesta = -1;
+            }
+
+            return oRespuesta;
+        }
+
+        //funciones para SGR
+        public string getIsoCountryValidation(string trama, string wtipo)
+        {
+            string country = "";
+            if (wtipo == "VSM" || wtipo == "VQP")
+            {
+                country = getPropertyValue(encontrarValorNodo(JObject.Parse(trama), "operation_id") + "." + "payment_details.originating_country_currency.iso_code.country_code", JObject.Parse(trama)); ;
+            }
+            if (wtipo == "VPM")
+            {
+                country = getPropertyValue(encontrarValorNodo(JObject.Parse(trama), "operation_id") + "." + "payment_details.originating_country_currency.iso_code.country_code", JObject.Parse(trama));
+            }
+
+            return country;
+
+        }
+        //MetodoPara Validar el pais de donde proviene la transaccion y si debe validarse por SGR
+        public bool validateCountry(string country, IConfiguration config)
+        {
+            bool response = true;
+            List<string> lstPaises = new List<string>();
+            lstPaises = new UtileriasAWM().getAppSettingsKey("CountrySGR", config).Split(',').ToList();
+            try
+            {
+                foreach (var paisTemp in lstPaises)
+                {
+                    if (paisTemp == country)
+                    {
+                        response = false;
+                    }
+                }
+                return response;
+                //RequestSGR req = new RequestSGR();
+                //ProxySGRt SGR = new ProxySGRt(req);
+                //response = SGR.validateCountry(country);
+            }
+            catch (Exception)
+            {
+                return response;
+            }
+        }
+        public bool ValidateSGR(IConfiguration config, string trama, int idPaisOrigen, string wtipo, string logkey, ref string mensaje, ref string token, string tramaRespuesta = "")
+        {
+            bool result = true;
+            RequestSGR request = new RequestSGR();
+            if (wtipo == "VSM")
+            {
+                request = fillSGRValidateSend(config, trama, idPaisOrigen, logkey, ref mensaje);
+            }
+            if (wtipo == "VPM")
+            {
+                request = fillSGRValidatePay(config, trama, idPaisOrigen, logkey, ref mensaje);
+            }
+            //if (wtipo == "VQP")
+            //{
+            //    request = fillSGRValidateQuickPay(trama, idPaisOrigen, logkey, ref mensaje);
+            //}
+            //if (wtipo == "VSM_V")
+            //{
+            //    request = fillSGRValidateSend_inValidate(trama, tramaRespuesta, idPaisOrigen, logkey, ref mensaje);
+            //}
+
+            if (!mensaje.Trim().Equals(""))
+            {
+                //LogWriter.Write(mensaje, Category.None, Level.Info, request.Transactionid,
+                // request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                //  request.Transactionid);
+                return false;
+            }
+
+            ProxySGRt SGR = new ProxySGRt(request);
+            ResponseSGR response = new ResponseSGR();
+
+            //Log de SGR Request
+            //LogWriter.Write(SGR.RequestXML, Category.None, Level.Info, request.Transactionid,
+            //                request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+            //                request.Transactionid);
+
+            if (SGR.ValidateTransation(ref response))
+            {
+                if (response.token == "ERROR")
+                {
+                    mensaje = response.mensaje;
+                    result = false;
+                }
+                token = response.token;
+                //LogWriter.Write(SGR.ResponseXML, Category.None, Level.Info, request.Transactionid,
+                // request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                //  request.Transactionid);
+            }
+            else
+            {
+                mensaje = response.mensaje;
+                //LogWriter.Write(SGR.ResponseXML, Category.Fault, Level.Error, request.Transactionid,
+                //      request.Subproductcode.Substring(0, 1), request.Isocountry, request.Sucursal,
+                //      request.Transactionid);
+                result = false;
+            }
+            return result;
+        }
+        public RequestSGR fillSGRValidateSend(IConfiguration config, string trama, int IdPaisOrigen, string logkey, ref string mensaje)
+        {
+            string nodoOperacion = encontrarValorNodo(JObject.Parse(trama), "operation_id");
+            RequestSGR request = new RequestSGR();
+            string serviceMode = new UtileriasAWM().getAppSettingsKey("ControlServiceMode", config);
+            string port = new UtileriasAWM().getAppSettingsKey("ControlServicePort", config);
+            #region mapping data
+
+            int county_tax = Convert.ToInt32(getPropertyValue(nodoOperacion + "." + "financials.taxes.county_tax", JObject.Parse(trama)));
+            int municipal_tax = Convert.ToInt32(getPropertyValue(nodoOperacion + "." + "financials.taxes.municipal_tax", JObject.Parse(trama)));
+            int state_tax = Convert.ToInt32(getPropertyValue(nodoOperacion + "." + "financials.taxes.state_tax", JObject.Parse(trama)));
+            int charges = Convert.ToInt32(getPropertyValue(nodoOperacion + "." + "financials.charges", JObject.Parse(trama)));
+            int message_charge = Convert.ToInt32(getPropertyValue(nodoOperacion + "." + "financials.message_charge", JObject.Parse(trama)));
+
+            string ipError = "";
+            //aca va 
+            string ipPais = new ConexionBD().getUrl(IdPaisOrigen, ref ipError, config);
+            dynamic tracsURL = string.Format("http://{0}:{1}/{2}/", ipPais, port, serviceMode);
+            //#endif
+
+            /// PREGUNTAR SOBRE ESTO MAÑANA 
+            //_db = new ControlEntities(new Uri(tracsURL));
+            //int AgenciaID = int.Parse(getPropertyValue("header.agency_id", JObject.Parse(trama)));
+
+            //var queryagencia = (from a in _db.Agencias.Expand("Grupo")
+            //                    where a.AgenciaID == AgenciaID
+            //                    select a).FirstOrDefault();
+
+            string tasa = "1";
+            //tasa = GetTasa(trama, "ENVIO", IdPaisOrigen, 1, getPropertyValue("header.operation_product_id", JObject.Parse(trama)), logkey, ref mensaje).ToString();
+            #endregion
+
+            request.Sucursal = getPropertyValue("header.agency_id", JObject.Parse(trama));
+            request.Transactionamount = (Convert.ToInt32(getPropertyValue(nodoOperacion + "." + "financials.originators_principal_amount", JObject.Parse(trama))) / 100).ToString();
+            request.Transactioncurrency = getPropertyValue(nodoOperacion + "." + "payment_details.originating_country_currency.iso_code.currency_code", JObject.Parse(trama));
+            request.Isocountry = getPropertyValue(nodoOperacion + "." + "payment_details.originating_country_currency.iso_code.country_code", JObject.Parse(trama));
+            request.Transactiontype = new UtileriasAWM().getAppSettingsKey("SGR_NotaDebito", config);
+
+            //Se realiza cambio para que se envie a SGR Simple y Rpaido, y DigitalWU en caso que sean de Sitio Web
+            switch (getPropertyValue("header.operation_product_id", JObject.Parse(trama)).ToLower())
+            {
+                case "syr":
+                    request.Description = new UtileriasAWM().getAppSettingsKey("SGR_SendMoneySYR", config);
+                    break;
+                default:
+                    request.Description = new UtileriasAWM().getAppSettingsKey("SGR_SendMoney", config);
+                    break;
+            }
+
+            request.Subproductcode = new UtileriasAWM().getAppSettingsKey("SGR_SendMoney", config);
+            request.Transactioncharges = ((charges + message_charge) / 100).ToString();
+            request.Transactiontax = ((county_tax + municipal_tax + state_tax) / 100).ToString();
+            request.Transactionid = getPropertyValue(nodoOperacion + "." + "mtcn", JObject.Parse(trama));
+            request.Transactiondate = DateTime.Now.ToString("yyyy-MM-dd");
+            request.Exchangerateliq = tasa;
+            request.Plataform = new UtileriasAWM().getAppSettingsKey("SGR_Platform", config);
+            //Se aplico el cambio para que los Envios tengan este nuevo tipo de producto WUOB
+
+            //Se realiza cambio para que se envie a SGR Simple y Rpaido, y DigitalWU en caso que sean de Sitio Web
+            switch (getPropertyValue("header.operation_product_id", JObject.Parse(trama)).ToLower())
+            {
+                case "dwu":
+                    request.Productcode = new UtileriasAWM().getAppSettingsKey("SGR_ProductCodeDigitalWU", config);
+                    break;
+                default:
+                    request.Productcode = new UtileriasAWM().getAppSettingsKey("SGR_ProductCodeSendMoney", config);
+                    break;
+            }
+
+            request.Adjustment = "0";
+            request.Subagent = "";
+            //queryagencia.Grupo.CodigoGrupo.ToString();
+            request.Token = "";
+            request.expirationdate = "";
+            return request;
+        }
+        public RequestSGR fillSGRValidatePay(IConfiguration config, string trama, int IdPaisOrigen, string logkey, ref string mensaje)
+        {
+            string nodoOperacion = encontrarValorNodo(JObject.Parse(trama), "operation_id");
+            string serviceMode = new UtileriasAWM().getAppSettingsKey("ControlServiceMode", config);
+            string port = new UtileriasAWM().getAppSettingsKey("ControlServicePort", config);
+            RequestSGR request = new RequestSGR();
+
+            string _product = string.IsNullOrEmpty(getPropertyValue("header.operation_product_id", JObject.Parse(trama))) ? new UtileriasAWM().getAppSettingsKey("SGR_ProductCode", config) : getPropertyValue("header.operation_product_id", JObject.Parse(trama));
+
+            //Se realiza cambio para que se envie a SGR Simple y Rpaido, y DigitalWU en caso que sean de Sitio Web
+            switch (getPropertyValue("header.operation_product_id", JObject.Parse(trama)).ToLower())
+            {
+                case "dwu":
+                    request.Productcode = new UtileriasAWM().getAppSettingsKey("SGR_ProductCodeDigitalWU", config);
+                    break;
+                default:
+                    request.Productcode = new UtileriasAWM().getAppSettingsKey("SGR_ProductCodeSendMoney", config);
+                    break;
+            }
+            string ipError = "";
+
+            string ipPais = "";
+            //getUrl(IdPaisOrigen, ref ipError);
+
+            //#if DEBUG
+            //dynamic tracsURL = string.Format("{1}/{0}", serviceMode, System.Configuration.new UtileriasAWM().getAppSettingsKey(string.Format("controlservice_debug_{0}", IdPaisOrigen)]);
+            //#else
+            dynamic tracsURL = string.Format("http://{0}:{1}/{2}/", ipPais, port, serviceMode);
+            ////#endif
+            //_db = new ControlEntities(new Uri(tracsURL));
+
+            //int AgenciaID = int.Parse(header.First().agency_id);
+            //var queryagencia = (from a in _db.Agencias.Expand("Grupo")
+            //                    where a.AgenciaID == AgenciaID
+            //                    select a).FirstOrDefault();
+
+            string tasa = "1";
+            // tasa = GetTasa(trama, "PAGO", IdPaisOrigen, 1, getPropertyValue("header.operation_product_id", JObject.Parse(trama)), logkey, ref mensaje).ToString();
+
+
+            request.Sucursal = getPropertyValue("header.agency_id", JObject.Parse(trama));
+            request.Transactionamount = (Convert.ToInt32(getPropertyValue(nodoOperacion+"."+"financials.pay_amount", JObject.Parse(trama))) / 100).ToString();
+            request.Transactioncurrency = getPropertyValue(nodoOperacion + "."+"payment_details.originating_country_currency.iso_code.currency_code", JObject.Parse(trama));
+            request.Isocountry = getPropertyValue(nodoOperacion + "."+"payment_details.originating_country_currency.iso_code.country_code", JObject.Parse(trama));
+            request.Transactiontype = new UtileriasAWM().getAppSettingsKey("SGR_NotaCredito", config);
+
+            //Se realiza cambio para que se envie a SGR diferente descripcion
+            switch (getPropertyValue("header.operation_product_id", JObject.Parse(trama)).ToLower())
+            {
+                case "syr":
+                    request.Description = new UtileriasAWM().getAppSettingsKey("SGR_SendMoneySYR", config);
+                    break;
+                default:
+                    request.Description = new UtileriasAWM().getAppSettingsKey("SGR_SendMoney", config);
+                    break;
+            }
+
+            request.Subproductcode = new UtileriasAWM().getAppSettingsKey("SGR_ReceiveMoney", config);
+            request.Transactioncharges = "0";
+            request.Transactiontax = "0";
+            // request.Transactionid = GetStringElement(confirm);
+            request.Transactiondate = DateTime.Now.ToString("yyyy-MM-dd");
+            request.Exchangerateliq = tasa;
+            request.Plataform = new UtileriasAWM().getAppSettingsKey("SGR_Platform", config);
+            //request.Productcode = System.Configuration.new UtileriasAWM().getAppSettingsKey("SGR_ProductCode"]; 
+            request.Productcode = _product.ToUpper();
+            request.Adjustment = "0";
+            //request.Subagent = queryagencia.Grupo.CodigoGrupo.ToString();
+            request.Token = "";
+            request.expirationdate = "";
+
+            return request;
+        }
+        public void StoreSGR(IConfiguration config, string trama, string xmlRespuesta, string wtipo, int idPaisOrigen, string logkey, string token)
+        {
+            AsyncStoreSGR SGR = new AsyncStoreSGR(config, trama, xmlRespuesta, wtipo, idPaisOrigen, logkey, token);
+            SGR.StoreSGRAsincrono();
+        }
+        private Double GetTasa(IConfiguration config, string trama, string tipotransacion, int PaisID, int AgenciaID, string ProductShortName, string logkey, ref string oError)
+        {
+            //    Double vTasa = 1;
+            //    string mtcn = "", urlPais = "";
+            //    DataTable dt = new DataTable();
+            //    // ControlModel.Tasa tasas;
+            //    try
+            //    {
+            //        XDocument xmlRequest = XDocument.Parse(trama);
+            //        string ipError = "";
+            //        urlPais = new ConexionBD().getUrl(Convert.ToInt32(PaisID), ref ipError,config);
+            //        if (ipError != "")
+            //        {
+            //            throw new Exception(ipError);
+            //        };
+
+            //        dynamic tracsURL = string.Format("http://{0}:{1}/{2}/", urlPais, port, serviceMode);
+            //        _db = new ControlEntities(new Uri(tracsURL));
+
+            //        string keyFx = System.Configuration.ConfigurationManager.AppSettings["KeyComFX"];
+            //        string[] llaves = keyFx.Split(new[] { "," }, StringSplitOptions.RemoveEmptyEntries);
+
+            //        int GT = int.Parse(System.Configuration.ConfigurationManager.AppSettings["GT"]);
+
+            //        for (int i = 0; i < llaves.Length; i++)
+            //        {
+            //            if (PaisID == GT && new[] { llaves[i] }.Any(x => ProductShortName.Contains(x)))
+            //            {
+            //                if (!GetAgrupacionFX(AgenciaID, PaisID, ref oError, ref dt)) if (oError != "") throw new Exception(oError);
+            //                dt = new DataTable();
+            //                dt = getExchangeRateAgrGT(ProductShortName, AgenciaID);
+            //                if (dt.Rows.Count == 0) { tasas = null; goto Salta; }
+            //                tasas = dt.AsEnumerable().Select(row => new ControlModel.Tasa { TasaEnvio = row.Field<double>("TasaEnvio"), TasaPago = row.Field<double>("TasaPago") }).FirstOrDefault();
+            //                goto Salta;
+            //            }
+            //        }
+
+            //        //#if DEBUG
+            //        //dynamic tracsURL = string.Format("{1}/{0}", serviceMode, System.Configuration.ConfigurationManager.AppSettings[string.Format("controlservice_debug_{0}", PaisID)]);
+            //        //#else
+            //        //#endif
+            //        var lsttasas = from t in _db.Tasas
+            //                       where t.Producto.Nombre == ProductShortName && t.Fecha == (DateTimeOffset.Now.Date)
+            //                       orderby t.Fecha descending
+            //                       select t;
+
+
+            //        tasas = lsttasas.FirstOrDefault();
+            //    Salta:
+            //        if (tasas == null)
+            //        {
+            //            if (!PaisID.ToString().Trim().Equals(""))
+            //                SendMailExcangeRateSGR(PaisID, ProductShortName, tipotransacion, mtcn, logkey, ref oError);
+            //            throw new Exception("Tasa de Cambio no configurada para la Marca");
+            //        }
+
+            //        if (trama.Contains("payment_details"))
+            //        {
+            //            if (tipotransacion.Equals("ENVIO") || tipotransacion.Equals("QUICKPAY"))
+            //            {
+            //                var details = from info in xmlRequest.Descendants("payment_details")
+            //                              select new
+            //                              {
+            //                                  dc_country_code = info.Element("destination_country_currency").Element("iso_code").Element("country_code").Value.ToString(),
+            //                                  oc_country_code = info.Element("originating_country_currency").Element("iso_code").Element("country_code").Value.ToString()
+            //                              };
+
+            //                var detail = details.First();
+            //                if (detail.oc_country_code.CompareTo("GT") == 0) // Si el orígen del Envío es Guatemala - originating_country_currency
+            //                {
+            //                    if (mValidaAgentePropioXAgencia(PaisID.ToString(), AgenciaID.ToString(), ref oError))
+            //                    {
+            //                        if (detail.oc_country_code.CompareTo(detail.dc_country_code) != 0)
+            //                        {
+            //                            vTasa = double.Parse(tasas.TasaEnvio.ToString()); // <= 1 - Envio                     
+            //                        }
+            //                        else //Intra
+            //                        {
+            //                            vTasa = double.Parse(tasas.TasaPago.ToString());
+            //                        }
+            //                    }
+            //                    else
+            //                    {
+            //                        vTasa = double.Parse(tasas.TasaPago.ToString());
+            //                    }
+            //                }
+            //                else
+            //                {
+            //                    vTasa = double.Parse(tasas.TasaPago.ToString()); // <= 2 - Pago                
+            //                }
+            //            }
+            //            else if (tipotransacion.Equals("PAGO") || tipotransacion.Equals("TRANSFERENCIA"))
+            //            {
+            //                var details = from info in xmlRequest.Descendants("payment_details")
+            //                              select new
+            //                              {
+            //                                  dc_country_code = info.Element("destination_country_currency").Element("iso_code").Element("country_code").Value.ToString()
+            //                              };
+
+            //                var detail = details.First();
+            //                if (detail.dc_country_code.CompareTo("GT") == 0) // Si el país donde se está pagando es Guatemala - destination_country_currency
+            //                {
+            //                    vTasa = double.Parse(tasas.TasaPago.ToString());
+            //                }
+            //                else
+            //                {
+            //                    vTasa = double.Parse(tasas.TasaEnvio.ToString());
+            //                }
+            //            }
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        oError = ex.Message;
+            //    }
+            return 0.0;
+            //    return vTasa;
+        }
+
+        internal string mCalculoIVA(string oTrama, string oTramaRequest, int oPais, string oMoneda, string logkey, ref string oError, IConfiguration _Config)
+        {
+            DataSet oTabla = new DataSet();
+            DataSet dCounty = new DataSet();
+            string oRespuesta = "";
+            XDocument oDoc;
+            double cargos = 0;
+            double cargosmsg = 0;
+            double gross = 0;
+            double Iva = 0;
+            double newGross = 0;
+            double monto = 0;
+            //  string oMoneda = "";
+            string oSP = "";
+            double oCounty = 0;
+            List<Parametros> iParams = new List<Parametros>();
+            Parametros iparam;
+            List<Parametros> iParams2 = new List<Parametros>();
+
+            try
+            {
+                SaveLog(oTrama, "1", logkey, 1, _Config);
+                //AirpakCommunicationProxy.SaveLog(logkey, oTrama);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                #region variables
+                oDoc = XDocument.Parse(oTrama);
+                var oDatos = (from oTem in oDoc.Descendants("financials")
+                              select new
+                              {
+                                  ocargo = oTem.Element("charges").Value.ToString(),
+                                  ogross = oTem.Element("gross_total_amount").Value.ToString(),
+                                  omonto = oTem.Element("originators_principal_amount").Value.ToString(),
+                                  ocargosmsg = GetStringElement(oTem.Element("message_charge"))
+                              }).Single();
+
+                if (oDatos != null)
+                {
+                    cargos = Convert.ToDouble(oDatos.ocargo) / 100;
+                    gross = Convert.ToDouble(oDatos.ogross) / 100;
+                    monto = Convert.ToDouble(oDatos.omonto) / 100;
+                    cargosmsg = (oDatos.ocargosmsg.Length > 0 ? Convert.ToDouble(oDatos.ocargosmsg) / 100 : 0);
+                }
+
+                #endregion
+                #region Obtener SP
+                iparam = new Parametros("@pais", oPais.ToString(), Parametros.SType.Int);
+                iParams.Add(iparam);
+
+                string dbAlias = new UtileriasAWM().getAppSettingsKey("dbalias", _Config);
+                    //ConfigurationManager.AppSettings["dbalias"];
+                MSSQLConnection objDB = new MSSQLConnection(dbAlias);
+                Boolean oResult = false;
+                try
+                {
+                    oResult = objDB.executeSP("sp_pos_getSPImpuesto", iParams, MSSQLConnection.ReturnTypes.Dataset);
+                }
+                catch (SqlException oExQ)
+                {
+                    oError = oExQ.Message;
+                    objDB.closeConnection();
+                    return oTrama;
+                }
+                catch (Exception oEx)
+                {
+                    oError = oEx.Message;
+                    objDB.closeConnection();
+                    return oTrama;
+                }
+
+                if (!oResult)
+                {
+                    objDB.closeConnection();
+                    return oTrama;
+                }
+
+                oTabla = objDB.getDataset();
+                if (oTabla.Tables.Count == 0)
+                {
+                    return oTrama;
+                }
+                oSP = oTabla.Tables[0].Rows[0]["SP"].ToString();
+                #endregion
+
+                #region "Obtener Agencia"
+                string oConnector = "";
+                try
+                {
+                    XDocument oDocAg = new XDocument();
+                    oDocAg = XDocument.Parse(oTramaRequest);
+
+                    var oVariables = (from c in oDocAg.Descendants("foreign_remote_system")
+                                      select new
+                                      {
+                                          _oConnector = c.Element("counter_id").Value
+                                      }).Single();
+
+                    oConnector = oVariables._oConnector.ToString();
+
+                }
+                catch
+                {
+                    oConnector = "";
+                }
+                #endregion
+
+                #region Obtener County
+                iParams2.Add(new Parametros("@Origen", monto.ToString(), Parametros.SType.Decimal));
+                iParams2.Add(new Parametros("@Cargos", cargos.ToString(), Parametros.SType.Decimal));
+                iParams2.Add(new Parametros("@Moneda", oMoneda, Parametros.SType.VarChar));
+                iParams2.Add(new Parametros("@pais", oPais.ToString(), Parametros.SType.Int));
+                iParams2.Add(new Parametros("@CargosMSG", cargosmsg.ToString(), Parametros.SType.Decimal));
+                iParams2.Add(new Parametros("@connectorid", oConnector, Parametros.SType.VarChar));
+                bool oResult2 = false;
+                try
+                {
+                    oResult2 = objDB.executeSP(oSP, iParams2, MSSQLConnection.ReturnTypes.Dataset);
+                }
+                catch (SqlException oExQ)
+                {
+                    oError = oExQ.Message;
+                    objDB.closeConnection();
+                    return oTrama;
+                }
+                catch (Exception oEx)
+                {
+                    oError = oEx.Message;
+                    objDB.closeConnection();
+                    return oTrama;
+                }
+
+                if (!oResult2)
+                {
+                    oCounty = 0;
+                }
+                dCounty = objDB.getDataset();
+
+                oCounty = Convert.ToDouble(dCounty.Tables[0].Rows[0]["Impuesto"].ToString());
+                #endregion
+
+                Iva = Math.Round(oCounty, 2);
+                newGross = Math.Round((gross + Iva), 2);
+
+                string sIva = "";
+                string sNewGross = "";
+                bool ob = mConvertirEnviado(Iva.ToString(), ref sIva, ref oError);
+                bool ob2 = mConvertirEnviado(newGross.ToString(), ref sNewGross, ref oError);
+
+                XElement oNodo = (from c in oDoc.Descendants("financials").Descendants("gross_total_amount")
+                                  select c).Single();
+                oNodo.ReplaceWith(new XElement("gross_total_amount", sNewGross.Replace(".", "")));
+
+                XElement oNodo2 = (from c in oDoc.Descendants("financials").Descendants("taxes").Descendants("county_tax")
+                                   select c).Single();
+
+                oNodo2.ReplaceWith(new XElement("county_tax", sIva.Replace(".", "")));
+
+                oRespuesta = oDoc.ToString();
+            }
+            catch (Exception oex)
+            {
+                oError = oError + " / Error: Calculo de iva.";
+                oRespuesta = oTrama;
+            }
+
+            return oRespuesta;
+        }
+
+        internal string GetStringElement(XElement element)
+        {
+            try
+            {
+                return element.Value.ToString();
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+
+        public bool mConvertirEnviado(string oTexto, ref string oCantidad, ref string oError)
+        {
+            bool oResultado = false;
+            try
+            {
+                double pMonto = Convert.ToDouble(oTexto);
+                double oEntero = Math.Truncate(pMonto);
+                double oDecimal = pMonto - oEntero;
+                oDecimal = (Math.Round(oDecimal, 2));
+
+                if (oDecimal == 0)
+                {
+                    oCantidad = oEntero.ToString() + "00";
+                }
+                else
+                {
+                    if ((oDecimal > 0) && (oDecimal < 0.1))
+                    {
+                        oCantidad = (oEntero + oDecimal).ToString();
+                    }
+                    else
+                    {
+                        int oleng = oDecimal.ToString().Length;
+                        switch (oleng)
+                        {
+                            case 3:
+                                oCantidad = (oEntero + oDecimal).ToString() + "0";
+                                break;
+                            case 4:
+                                oCantidad = (oEntero + oDecimal).ToString();
+                                break;
+                        }
+                    }
+                }
+                oCantidad = oCantidad.ToString().Replace(",", "").Replace(".", "");
+                oResultado = true;
+
+            }
+            catch (Exception oex)
+            {
+                oError = oex.Message;
+                oResultado = false;
+            }
+            return oResultado;
+        }
+
+        internal dynamic consumeServicioValidaSGR(dynamic trama, string keylog, IConfiguration _config , string tokenSGR = "")
+        {
+            string json = string.Empty;
+            string uri = string.Empty;
+            try
+            {
+                uri = getAppSettingsKey("servicioConsumeWS", _config, "Servicios");
+                var httpWebRequest = (HttpWebRequest)WebRequest.Create(uri);
+                httpWebRequest.ContentType = "application/json";
+                httpWebRequest.Method = "POST";
+                InfoSGR objlogateway = new InfoSGR()
+                {
+                    tramaPartner = Convert.ToString(trama),
+                    keylog = keylog,
+                    
+                    
+                };
+                using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
+                {
+                    json = JsonConvert.SerializeObject(objlogateway);
+                    streamWriter.Write(json);
+                }
+
+                var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+                dynamic result = null;
+                using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
+                {
+                    result = streamReader.ReadToEnd();
+                };
+
+                return JObject.Parse(result);
+            }
+            catch (WebException ex)
+            {
+                var pageContent = new StreamReader(ex.Response.GetResponseStream()).ReadToEnd();
+                var messageError = encontrarValorNodo(JObject.Parse(pageContent), "ExceptionMessage");
+                throw new Exception(messageError);
+            }
+        }
+    }
+}
